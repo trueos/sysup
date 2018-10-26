@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -29,26 +28,45 @@ func init() {
 func startcheck() {
 	data := map[string]string{
 		"method": "check",
-		"action": "testing",
 	}
 	msg, err := json.MarshalIndent(data, "", "\t")
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	fmt.Println("JSON Message: ", string(msg))
+	//fmt.Println("JSON Message: ", string(msg))
 	send_err := c.WriteMessage(websocket.TextMessage, msg)
 	if send_err != nil {
 		log.Fatal("Failed talking to WS backend:", send_err)
 	}
-	time.Sleep(2 * time.Second);
+
+	done := make(chan struct{})
+	defer close(done)
+
+
+	// Wait for messages back
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		if ( ! json.Valid(message) ) {
+			log.Println("ERROR: Invalid JSON in return")
+			break
+		}
+		log.Printf("client-recv: %s", message)
+	}
 }
 
+
+// Start the websocket server
 func startws() {
         log.SetFlags(0)
         http.HandleFunc("/ws", echo)
         log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
+// Start our client connection to the WS server
 var (
         c   *websocket.Conn
 )
@@ -71,20 +89,6 @@ func connectws() {
 			log.Fatal("dial:", err)
 		}
 	}
-
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		for {
-			_, message, err := c.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				return
-			}
-			log.Printf("client-recv: %s", message)
-		}
-	}()
 }
 
 // Called when we want to signal that its time to close the WS connection
@@ -99,15 +103,20 @@ func closews() {
 		log.Println("write close:", err)
 		return
 	}
-
-	// This can go away eventually when the echo stops
-	time.Sleep(1 * time.Second);
 }
 
 func main() {
 	if len(os.Args) == 1 {
 		flag.Usage()
 	}
+
+	// Capture any sigint
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	go func() {
+		<-interrupt
+		os.Exit(1)
+	}()
 
 	if ( checkflag ) {
 		go startws()

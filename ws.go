@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -27,6 +28,30 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			log.Println("read:", err)
 			break
 		}
+		if ( ! json.Valid(message) ) {
+			log.Println("INVALID JSON")
+			continue
+
+		}
+
+		// Start decoding the incoming JSON
+		var f interface{}
+		err = json.Unmarshal(message, &f)
+		m := f.(map[string]interface{})
+
+		for k, v := range m {
+		    switch k {
+			case "method":
+				if ( v == "check" ) {
+					log.Println("Starting update check")
+					checkforupdates()
+				}
+
+			default:
+				log.Println("Uknown JSON KEY")
+		    }
+		}
+
 		log.Printf("server-recv: %s", message)
 		err = c.WriteMessage(mt, message)
 		if err != nil {
@@ -34,4 +59,8 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+}
+
+func checkforupdates() {
+
 }
