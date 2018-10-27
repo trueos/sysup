@@ -62,7 +62,7 @@ func startcheck() {
 // Start the websocket server
 func startws() {
         log.SetFlags(0)
-        http.HandleFunc("/ws", echo)
+        http.HandleFunc("/ws", readws)
         log.Fatal(http.ListenAndServe(*addr, nil))
 }
 

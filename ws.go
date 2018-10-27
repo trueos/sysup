@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"os/exec"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,7 +20,9 @@ var (
 
 var upgrader = websocket.Upgrader{} // use default options
 
-func echo(w http.ResponseWriter, r *http.Request) {
+var pkgflags string
+
+func readws(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -48,7 +55,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 				}
 
 			default:
-				log.Println("Uknown JSON KEY")
+				log.Println("Uknown JSON KEY:", k)
 		    }
 		}
 
@@ -61,6 +68,43 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func preparepkgconfig() {
+	derr := os.MkdirAll("/var/db/upgrade-go/pkgdb", 0755)
+	if derr != nil {
+		log.Fatal(derr)
+	}
+
+	fdata := `PKG_CACHEDIR: /var/cache/upgrade-go
+PKG_DBDIR: /var/db/upgrade-go/pkgdb
+IGNORE_OSVERSION: YES`
+	ioutil.WriteFile("/var/db/upgrade-go/pkg.conf", []byte(fdata), 0644)
+
+}
+
+func updatepkgdb() {
+	cmd := exec.Command("pkg-static", "update", "-f")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+	// Iterate over buff and append content to the slice
+	var allText []string
+	for buff.Scan() {
+		allText = append(allText, buff.Text()+"\n")
+	}
+	fmt.Println(allText)
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Done with pkg update")
+}
+
 func checkforupdates() {
+	preparepkgconfig()
+	updatepkgdb()
 
 }
