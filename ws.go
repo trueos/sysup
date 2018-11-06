@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -19,18 +19,22 @@ var (
 )
 
 var upgrader = websocket.Upgrader{} // use default options
-
+// Start our client connection to the WS server
+var (
+        conns   *websocket.Conn
+)
 var pkgflags string
 
 func readws(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
+	var err error
+	conns, err = upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
 		return
 	}
-	defer c.Close()
+	defer conns.Close()
 	for {
-		mt, message, err := c.ReadMessage()
+		_, message, err := conns.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
@@ -50,7 +54,6 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		    switch k {
 			case "method":
 				if ( v == "check" ) {
-					log.Println("Starting update check")
 					checkforupdates()
 				}
 
@@ -59,30 +62,38 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		    }
 		}
 
-		log.Printf("server-recv: %s", message)
-		err = c.WriteMessage(mt, message)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
+		// log.Printf("server-recv: %s", message)
+		//err = conns.WriteMessage(mt, message)
+		//if err != nil {
+		//	log.Println("write:", err)
+		//	break
+		//}
 	}
 }
 
+var localpkgdb = "/var/db/upgrade-go/pkgdb"
+var localpkgconf = "/var/db/upgrade-go/pkg.conf"
+var localcachedir = "/var/cache/upgrade-go"
 func preparepkgconfig() {
-	derr := os.MkdirAll("/var/db/upgrade-go/pkgdb", 0755)
+	derr := os.MkdirAll(localpkgdb, 0755)
 	if derr != nil {
 		log.Fatal(derr)
 	}
+	cerr := os.MkdirAll(localcachedir, 0755)
+	if cerr != nil {
+		log.Fatal(cerr)
+	}
 
-	fdata := `PKG_CACHEDIR: /var/cache/upgrade-go
-PKG_DBDIR: /var/db/upgrade-go/pkgdb
+	fdata := `PKG_CACHEDIR: ` + localcachedir + `
+PKG_DBDIR: ` + localpkgdb + `
 IGNORE_OSVERSION: YES`
-	ioutil.WriteFile("/var/db/upgrade-go/pkg.conf", []byte(fdata), 0644)
+	ioutil.WriteFile(localpkgconf, []byte(fdata), 0644)
 
 }
 
 func updatepkgdb() {
-	cmd := exec.Command("pkg-static", "update", "-f")
+	cmd := exec.Command("pkg-static", "-C", localpkgconf, "update", "-f")
+	sendinfomsg("Updating package remote database")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -96,15 +107,73 @@ func updatepkgdb() {
 	for buff.Scan() {
 		allText = append(allText, buff.Text()+"\n")
 	}
-	fmt.Println(allText)
+	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Done with pkg update")
+}
+
+func sendinfomsg(info string) {
+	type JSONReply struct {
+		Method string `json:"method"`
+		Info  string `json:"info"`
+	}
+
+	data := &JSONReply{
+		Method:     "info",
+		Info:   info,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func upgradedryrun() {
+	cmd := exec.Command("pkg-static", "-C", localpkgconf, "upgrade", "-Un")
+	sendinfomsg("Checking system for updates")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and append content to the slice
+	var allText []string
+	for buff.Scan() {
+		allText = append(allText, buff.Text()+"\n")
+	}
+	//fmt.Println(allText)
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
+	type JSONReply struct {
+		Method string `json:"method"`
+		Updates  bool `json:"updates"`
+	}
+
+	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
+	data := &JSONReply{
+		Method:     "check",
+		Updates:   haveupdates,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func checkforupdates() {
 	preparepkgconfig()
 	updatepkgdb()
-
+	upgradedryrun()
 }

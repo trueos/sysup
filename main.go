@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -23,6 +24,17 @@ func init() {
 	flag.BoolVar(&startflag, "start", false, "Start and upgrade to latest packages")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()
+}
+
+type Envelope struct {
+	Method string
+}
+
+type Check struct {
+	Updates bool
+}
+type InfoMsg struct {
+	Info string
 }
 
 func startcheck() {
@@ -54,7 +66,42 @@ func startcheck() {
 			log.Println("ERROR: Invalid JSON in return")
 			break
 		}
-		log.Printf("client-recv: %s", message)
+	//	log.Printf("client-recv: %s", message)
+		var env Envelope
+		if err := json.Unmarshal(message, &env); err != nil {
+			log.Fatal(err)
+		}
+		switch env.Method {
+		case "check":
+			var s struct {
+				Envelope
+				Check
+			}
+			if err := json.Unmarshal(message, &s); err != nil {
+				log.Fatal(err)
+			}
+			var haveupdates bool = s.Updates
+			if ( haveupdates ) {
+				fmt.Println("The following updates are available")
+				os.Exit(10)
+			} else {
+				fmt.Println("No updates available")
+				os.Exit(0)
+			}
+		case "info":
+			var s struct {
+				Envelope
+				InfoMsg
+			}
+			if err := json.Unmarshal(message, &s); err != nil {
+				log.Fatal(err)
+			}
+			var infomsg string = s.Info
+			fmt.Println(infomsg)
+
+		default:
+			log.Fatalf("unknown message type: %q", env.Method)
+		}
 	}
 }
 
@@ -78,16 +125,20 @@ func connectws() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
-	log.Printf("connecting to %s", u.String())
+//	log.Printf("connecting to %s", u.String())
 
 	err := errors.New("")
-	c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		time.Sleep(200 * time.Millisecond);
+	var connected bool = false
+	for attempt := 0; attempt < 10; attempt++ {
 		c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
-		if err != nil {
-			log.Fatal("dial:", err)
+		if err == nil {
+			connected = true
+			break
 		}
+		time.Sleep(5 * time.Millisecond);
+	}
+	if (!connected) {
+		log.Fatal("Failed connecting to websocket server", err)
 	}
 }
 
