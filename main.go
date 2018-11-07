@@ -37,6 +37,50 @@ type InfoMsg struct {
 	Info string
 }
 
+func parsejsonmsg(message []byte) int {
+	if ( ! json.Valid(message) ) {
+		log.Println("ERROR: Invalid JSON in return")
+		return 1
+	}
+//	log.Printf("client-recv: %s", message)
+	var env Envelope
+	if err := json.Unmarshal(message, &env); err != nil {
+		log.Fatal(err)
+	}
+	switch env.Method {
+	case "check":
+		var s struct {
+			Envelope
+			Check
+		}
+		if err := json.Unmarshal(message, &s); err != nil {
+			log.Fatal(err)
+		}
+		var haveupdates bool = s.Updates
+		if ( haveupdates ) {
+			fmt.Println("The following updates are available")
+			os.Exit(10)
+		} else {
+			fmt.Println("No updates available")
+			os.Exit(0)
+		}
+	case "info":
+		var s struct {
+			Envelope
+			InfoMsg
+		}
+		if err := json.Unmarshal(message, &s); err != nil {
+			log.Fatal(err)
+		}
+		var infomsg string = s.Info
+		fmt.Println(infomsg)
+
+	default:
+		log.Fatalf("unknown message type: %q", env.Method)
+	}
+	return 0
+}
+
 func startcheck() {
 	data := map[string]string{
 		"method": "check",
@@ -62,46 +106,8 @@ func startcheck() {
 			log.Println("read:", err)
 			return
 		}
-		if ( ! json.Valid(message) ) {
-			log.Println("ERROR: Invalid JSON in return")
-			break
-		}
-	//	log.Printf("client-recv: %s", message)
-		var env Envelope
-		if err := json.Unmarshal(message, &env); err != nil {
-			log.Fatal(err)
-		}
-		switch env.Method {
-		case "check":
-			var s struct {
-				Envelope
-				Check
-			}
-			if err := json.Unmarshal(message, &s); err != nil {
-				log.Fatal(err)
-			}
-			var haveupdates bool = s.Updates
-			if ( haveupdates ) {
-				fmt.Println("The following updates are available")
-				os.Exit(10)
-			} else {
-				fmt.Println("No updates available")
-				os.Exit(0)
-			}
-		case "info":
-			var s struct {
-				Envelope
-				InfoMsg
-			}
-			if err := json.Unmarshal(message, &s); err != nil {
-				log.Fatal(err)
-			}
-			var infomsg string = s.Info
-			fmt.Println(infomsg)
-
-		default:
-			log.Fatalf("unknown message type: %q", env.Method)
-		}
+		// Do things with the message back
+		parsejsonmsg(message)
 	}
 }
 

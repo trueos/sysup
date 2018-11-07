@@ -84,6 +84,16 @@ func preparepkgconfig() {
 		log.Fatal(cerr)
 	}
 
+	// Copy over the existing local database
+	srcFolder := "/var/db/pkg/local.sqlite"
+	destFolder := localpkgdb + "/local.sqlite"
+	cpCmd := exec.Command("cp", "-f", srcFolder, destFolder)
+	err := cpCmd.Run()
+	if ( err != nil ) {
+		log.Fatal(err)
+	}
+
+	// Create the config file
 	fdata := `PKG_CACHEDIR: ` + localcachedir + `
 PKG_DBDIR: ` + localpkgdb + `
 IGNORE_OSVERSION: YES`
@@ -92,7 +102,7 @@ IGNORE_OSVERSION: YES`
 }
 
 func updatepkgdb() {
-	cmd := exec.Command("pkg-static", "-C", localpkgconf, "update", "-f")
+	cmd := exec.Command("pkg-static", "-d", "-C", localpkgconf, "update", "-f")
 	sendinfomsg("Updating package remote database")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -132,8 +142,66 @@ func sendinfomsg(info string) {
 	}
 }
 
+func parseupdatedata(uptext []string) {
+	var stage string
+	var line string
+	var newpkgname []string
+	var newpkgver []string
+//	var uppkg [][][]string
+//	var uppkgcnt int = 0
+//	var delpkg [][]string
+//	var delpkgcnt int = 0
+	scanner := bufio.NewScanner(strings.NewReader(strings.Join(uptext, "\n")))
+	for scanner.Scan() {
+		line = scanner.Text()
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines
+		if len(line) == 0 {
+			continue
+		}
+		if ( strings.Contains(line, "INSTALLED:")) {
+			stage = "NEW"
+			continue
+		}
+		if ( strings.Contains(line, "UPGRADED:")) {
+			stage = "UPGRADE"
+			continue
+		}
+		if ( strings.Contains(line, "REMOVED:")) {
+			stage = "REMOVE"
+			continue
+		}
+		if ( strings.Contains(line, " to be installed:")) {
+			stage = ""
+			continue
+		}
+		if ( strings.Contains(line, " to be upgraded:")) {
+			stage = ""
+			continue
+		}
+//		fmt.Printf(line + "\n")
+//		fmt.Printf("Fields are: %q\n", strings.Fields(line))
+		switch stage {
+		case "NEW":
+			if ( strings.Contains(line, ": ")) {
+				linearray := strings.Split(line, " ")
+				if ( len(linearray) < 2) {
+					continue
+				}
+				newpkgname = append(newpkgname, linearray[0])
+				newpkgver = append(newpkgver, linearray[1])
+				continue
+			}
+		case "UPGRADE":
+		case "REMOVE":
+		default:
+		}
+	}
+}
+
 func upgradedryrun() {
-	cmd := exec.Command("pkg-static", "-C", localpkgconf, "upgrade", "-Un")
+	cmd := exec.Command("pkg-static", "-C", localpkgconf, "upgrade", "-n")
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -150,15 +218,19 @@ func upgradedryrun() {
 		allText = append(allText, buff.Text()+"\n")
 	}
 	//fmt.Println(allText)
-	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
-	}
+	// Pkg returns 0 on sucess and 1 on updates needed
+	//if err := cmd.Wait(); err != nil {
+	//	log.Fatal(err)
+	//}
 	type JSONReply struct {
 		Method string `json:"method"`
 		Updates  bool `json:"updates"`
 	}
 
 	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
+	if ( haveupdates ) {
+		parseupdatedata(allText)
+	}
 	data := &JSONReply{
 		Method:     "check",
 		Updates:   haveupdates,
