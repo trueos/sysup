@@ -46,20 +46,24 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Start decoding the incoming JSON
-		var f interface{}
-		err = json.Unmarshal(message, &f)
-		m := f.(map[string]interface{})
-
-		for k, v := range m {
-		    switch k {
-			case "method":
-				if ( v == "check" ) {
-					checkforupdates()
-				}
-
-			default:
-				log.Println("Uknown JSON KEY:", k)
-		    }
+	        var env Envelope
+		if err := json.Unmarshal(message, &env); err != nil {
+			log.Fatal(err)
+	        }
+	        switch env.Method {
+	        case "check":
+			checkforupdates()
+		case "upgrade":
+	                var s struct {
+				Envelope
+				UpdateReq
+			}
+			if err = json.Unmarshal(message, &s); err != nil {
+				log.Fatal(err)
+			}
+			doupgrade(s.Updatefile)
+		default:
+			log.Println("Uknown JSON Method:", env.Method)
 		}
 
 		// log.Printf("server-recv: %s", message)
@@ -69,6 +73,19 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		//	break
 		//}
 	}
+}
+
+func doupgrade(updatefile string) {
+	log.Println("updatefile: " + updatefile)
+
+	// Setup the pkg config directory
+	preparepkgconfig()
+
+	// Update the package database
+	updatepkgdb()
+
+	log.Println("DONE")
+	os.Exit(0)
 }
 
 var localpkgdb = "/var/db/upgrade-go/pkgdb"

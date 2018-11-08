@@ -17,11 +17,13 @@ import (
 
 // Setup our CLI Flags
 var checkflag bool
-var startflag bool
+var upgradeflag bool
 var websocketflag bool
+var updatefile string
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
-	flag.BoolVar(&startflag, "start", false, "Start and upgrade to latest packages")
+	flag.BoolVar(&upgradeflag, "upgrade", false, "Upgrade to latest packages")
+	flag.StringVar(&updatefile, "upgradefile", "", "Use the specified upgrade image instead of fetching from remote")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()
 }
@@ -33,6 +35,10 @@ type Envelope struct {
 type Check struct {
 	Updates bool
 	Details UpdateInfo
+}
+
+type UpdateReq struct {
+	Updatefile string
 }
 
 type InfoMsg struct {
@@ -188,6 +194,37 @@ func closews() {
 	}
 }
 
+func startupgrade() {
+	data := map[string]string{
+		"method": "upgrade",
+		"updatefile": updatefile,
+	}
+	msg, err := json.MarshalIndent(data, "", "\t")
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	//fmt.Println("JSON Message: ", string(msg))
+	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	if send_err != nil {
+		log.Fatal("Failed talking to WS backend:", send_err)
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+
+	// Wait for messages back
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		// Do things with the message back
+		parsejsonmsg(message)
+	}
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		flag.Usage()
@@ -208,7 +245,15 @@ func main() {
 		closews()
 		os.Exit(0)
 	}
+	if ( upgradeflag ) {
+		go startws()
+		connectws()
+		startupgrade()
+		closews()
+		os.Exit(0)
+	}
 	if ( websocketflag ) {
 		startws()
+		os.Exit(0)
 	}
 }
