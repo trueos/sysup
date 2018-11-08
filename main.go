@@ -32,9 +32,34 @@ type Envelope struct {
 
 type Check struct {
 	Updates bool
+	Details UpdateInfo
 }
+
 type InfoMsg struct {
 	Info string
+}
+
+func printupgradedetails(details UpdateInfo) {
+
+	fmt.Println("The following packages will be upgraded:")
+	fmt.Println("----------------------------------------------------")
+	for i, _ := range details.Up {
+		fmt.Println("   " + details.Up[i].Name + " " + details.Up[i].OldVersion + " -> " + details.Up[i].NewVersion)
+	}
+
+	fmt.Println()
+	fmt.Println("The following packages will be installed:")
+	fmt.Println("----------------------------------------------------")
+	for i, _ := range details.New {
+		fmt.Println("   " + details.New[i].Name + " " + details.New[i].Version)
+	}
+
+	fmt.Println()
+	fmt.Println("The following packages will be removed:")
+	fmt.Println("----------------------------------------------------")
+	for i, _ := range details.Del {
+		fmt.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
+	}
 }
 
 func parsejsonmsg(message []byte) int {
@@ -42,7 +67,7 @@ func parsejsonmsg(message []byte) int {
 		log.Println("ERROR: Invalid JSON in return")
 		return 1
 	}
-	log.Printf("client-recv: %s", message)
+	//log.Printf("client-recv: %s", message)
 	var env Envelope
 	if err := json.Unmarshal(message, &env); err != nil {
 		log.Fatal(err)
@@ -59,6 +84,7 @@ func parsejsonmsg(message []byte) int {
 		var haveupdates bool = s.Updates
 		if ( haveupdates ) {
 			fmt.Println("The following updates are available")
+			printupgradedetails(s.Details)
 			os.Exit(10)
 		} else {
 			fmt.Println("No updates available")
