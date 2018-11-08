@@ -17,13 +17,13 @@ import (
 
 // Setup our CLI Flags
 var checkflag bool
-var upgradeflag bool
+var updateflag bool
 var websocketflag bool
 var updatefile string
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
-	flag.BoolVar(&upgradeflag, "upgrade", false, "Upgrade to latest packages")
-	flag.StringVar(&updatefile, "upgradefile", "", "Use the specified upgrade image instead of fetching from remote")
+	flag.BoolVar(&updateflag, "update", false, "Update to latest packages")
+	flag.StringVar(&updatefile, "updatefile", "", "Use the specified update image instead of fetching from remote")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()
 }
@@ -45,9 +45,9 @@ type InfoMsg struct {
 	Info string
 }
 
-func printupgradedetails(details UpdateInfo) {
+func printupdatedetails(details UpdateInfo) {
 
-	fmt.Println("The following packages will be upgraded:")
+	fmt.Println("The following packages will be updated:")
 	fmt.Println("----------------------------------------------------")
 	for i, _ := range details.Up {
 		fmt.Println("   " + details.Up[i].Name + " " + details.Up[i].OldVersion + " -> " + details.Up[i].NewVersion)
@@ -90,7 +90,7 @@ func parsejsonmsg(message []byte) int {
 		var haveupdates bool = s.Updates
 		if ( haveupdates ) {
 			fmt.Println("The following updates are available")
-			printupgradedetails(s.Details)
+			printupdatedetails(s.Details)
 			os.Exit(10)
 		} else {
 			fmt.Println("No updates available")
@@ -194,9 +194,9 @@ func closews() {
 	}
 }
 
-func startupgrade() {
+func startupdate() {
 	data := map[string]string{
-		"method": "upgrade",
+		"method": "update",
 		"updatefile": updatefile,
 	}
 	msg, err := json.MarshalIndent(data, "", "\t")
@@ -245,10 +245,10 @@ func main() {
 		closews()
 		os.Exit(0)
 	}
-	if ( upgradeflag ) {
+	if ( updateflag ) {
 		go startws()
 		connectws()
-		startupgrade()
+		startupdate()
 		closews()
 		os.Exit(0)
 	}

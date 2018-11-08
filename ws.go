@@ -18,7 +18,7 @@ var (
 	addr    = flag.String("addr", "127.0.0.1:8134", "Websocket service address")
 )
 
-var upgrader = websocket.Upgrader{} // use default options
+var updater = websocket.Upgrader{} // use default options
 // Start our client connection to the WS server
 var (
         conns   *websocket.Conn
@@ -27,9 +27,9 @@ var pkgflags string
 
 func readws(w http.ResponseWriter, r *http.Request) {
 	var err error
-	conns, err = upgrader.Upgrade(w, r, nil)
+	conns, err = updater.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		log.Print("update:", err)
 		return
 	}
 	defer conns.Close()
@@ -53,7 +53,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 	        switch env.Method {
 	        case "check":
 			checkforupdates()
-		case "upgrade":
+		case "update":
 	                var s struct {
 				Envelope
 				UpdateReq
@@ -61,7 +61,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			if err = json.Unmarshal(message, &s); err != nil {
 				log.Fatal(err)
 			}
-			doupgrade(s.Updatefile)
+			doupdate(s.Updatefile)
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}
@@ -75,7 +75,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func doupgrade(updatefile string) {
+func doupdate(updatefile string) {
 	log.Println("updatefile: " + updatefile)
 
 	// Setup the pkg config directory
@@ -88,9 +88,9 @@ func doupgrade(updatefile string) {
 	os.Exit(0)
 }
 
-var localpkgdb = "/var/db/upgrade-go/pkgdb"
-var localpkgconf = "/var/db/upgrade-go/pkg.conf"
-var localcachedir = "/var/cache/upgrade-go"
+var localpkgdb = "/var/db/update-go/pkgdb"
+var localpkgconf = "/var/db/update-go/pkg.conf"
+var localcachedir = "/var/cache/update-go"
 func preparepkgconfig() {
 	derr := os.MkdirAll(localpkgdb, 0755)
 	if derr != nil {
@@ -267,7 +267,7 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	return &details
 }
 
-func upgradedryrun() {
+func updatedryrun() {
 	cmd := exec.Command("pkg-static", "-C", localpkgconf, "upgrade", "-n")
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
@@ -328,5 +328,5 @@ func upgradedryrun() {
 func checkforupdates() {
 	preparepkgconfig()
 	updatepkgdb()
-	upgradedryrun()
+	updatedryrun()
 }
