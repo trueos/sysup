@@ -12,4 +12,4 @@
 *.out
 
 # The default binary
-upgrade-go
+update-go
