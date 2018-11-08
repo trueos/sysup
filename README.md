@@ -1,2 +1,2 @@
-# upgrade-go
-System Upgrade utility written in GO
+# update-go
+System Update utility written in GO for TrueOS and related projects
