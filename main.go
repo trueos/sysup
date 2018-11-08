@@ -42,7 +42,7 @@ func parsejsonmsg(message []byte) int {
 		log.Println("ERROR: Invalid JSON in return")
 		return 1
 	}
-//	log.Printf("client-recv: %s", message)
+	log.Printf("client-recv: %s", message)
 	var env Envelope
 	if err := json.Unmarshal(message, &env); err != nil {
 		log.Fatal(err)

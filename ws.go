@@ -142,15 +142,41 @@ func sendinfomsg(info string) {
 	}
 }
 
-func parseupdatedata(uptext []string) {
+// Define all our JSON structures we use to return update info
+//----------------------------------------------------
+type NewPkg struct {
+	Name string `json:"name"`
+	Version string `json:"Version"`
+}
+
+type UpPkg struct {
+	Name string `json:"name"`
+	OldVersion string `json:"OldVersion"`
+	NewVersion string `json:"NewVersion"`
+}
+
+type DelPkg struct {
+	Name string `json:"name"`
+	Version string `json:"Version"`
+}
+
+type UpdateInfo struct {
+	New []NewPkg `json:"new"`
+	Up []UpPkg `json:"update"`
+	Del []DelPkg `json:"delete"`
+}
+//----------------------------------------------------
+
+func parseupdatedata(uptext []string) *UpdateInfo {
 	var stage string
 	var line string
-	var newpkgname []string
-	var newpkgver []string
-//	var uppkg [][][]string
-//	var uppkgcnt int = 0
-//	var delpkg [][]string
-//	var delpkgcnt int = 0
+
+	// Init the structure
+	details := UpdateInfo{ }
+	detailsNew := NewPkg{ }
+	detailsUp := UpPkg{ }
+	detailsDel := DelPkg{ }
+
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(uptext, "\n")))
 	for scanner.Scan() {
 		line = scanner.Text()
@@ -189,15 +215,39 @@ func parseupdatedata(uptext []string) {
 				if ( len(linearray) < 2) {
 					continue
 				}
-				newpkgname = append(newpkgname, linearray[0])
-				newpkgver = append(newpkgver, linearray[1])
+				detailsNew.Name=linearray[0]
+				detailsNew.Version=linearray[1]
+				details.New = append(details.New, detailsNew)
 				continue
 			}
 		case "UPGRADE":
+			if ( strings.Contains(line, " -> ")) {
+				linearray := strings.Split(line, " ")
+				if ( len(linearray) < 4) {
+					continue
+				}
+				detailsUp.Name=strings.Replace(linearray[0], ":", "", -1)
+				detailsUp.OldVersion=linearray[1]
+				detailsUp.NewVersion=linearray[3]
+				details.Up = append(details.Up, detailsUp)
+				continue
+			}
 		case "REMOVE":
+			if ( strings.Contains(line, ": ")) {
+				linearray := strings.Split(line, " ")
+				if ( len(linearray) < 2) {
+					continue
+				}
+				detailsDel.Name=linearray[0]
+				detailsDel.Version=linearray[1]
+				details.Del = append(details.Del, detailsDel)
+				continue
+			}
 		default:
 		}
 	}
+	//log.Print("UpdateInfo", details)
+	return &details
 }
 
 func upgradedryrun() {
@@ -225,22 +275,36 @@ func upgradedryrun() {
 	type JSONReply struct {
 		Method string `json:"method"`
 		Updates  bool `json:"updates"`
+		Details  *UpdateInfo `json:"details"`
 	}
 
 	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
 	if ( haveupdates ) {
-		parseupdatedata(allText)
-	}
-	data := &JSONReply{
-		Method:     "check",
-		Updates:   haveupdates,
-	}
-	msg, err := json.Marshal(data)
-	if err != nil {
-		log.Fatal("Failed encoding JSON:", err)
-	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Fatal(err)
+		updetails := parseupdatedata(allText)
+		data := &JSONReply{
+			Method:     "check",
+			Updates:   haveupdates,
+			Details:   updetails,
+		}
+		msg, err := json.Marshal(data)
+		if err != nil {
+			log.Fatal("Failed encoding JSON:", err)
+		}
+		if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		data := &JSONReply{
+			Method:     "check",
+			Updates:   haveupdates,
+		}
+		msg, err := json.Marshal(data)
+		if err != nil {
+			log.Fatal("Failed encoding JSON:", err)
+		}
+		if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
