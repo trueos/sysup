@@ -18,9 +18,17 @@ var pkgflags string
 
 // Package defaults
 //----------------------------------------------------
+var PKGBIN = "pkg-static"
 var localpkgdb = "/var/db/update-go/pkgdb"
 var localpkgconf = "/var/db/update-go/pkg.conf"
 var localcachedir = "/var/cache/update-go"
+//----------------------------------------------------
+
+// Boot-Environment defaults
+//----------------------------------------------------
+var BEBIN = "beadm"
+var BESTAGE = "updatego-stage"
+var STAGEDIR = "/.updatestage"
 //----------------------------------------------------
 
 // Define all our JSON structures we use to return update info

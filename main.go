@@ -17,12 +17,14 @@ import (
 
 // Setup our CLI Flags
 var checkflag bool
+var fullupdateflag bool
 var updateflag bool
 var websocketflag bool
 var updatefile string
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
 	flag.BoolVar(&updateflag, "update", false, "Update to latest packages")
+	flag.BoolVar(&fullupdateflag, "fullupdate", false, "Force a full update")
 	flag.StringVar(&updatefile, "updatefile", "", "Use the specified update image instead of fetching from remote")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()

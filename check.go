@@ -94,7 +94,7 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 }
 
 func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
-	cmd := exec.Command("pkg-static", "-C", localpkgconf, "upgrade", "-n")
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-n")
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

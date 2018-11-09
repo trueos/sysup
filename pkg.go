@@ -12,7 +12,7 @@ import (
 
 func getremoteosver() (string, error) {
 
-	cmd := exec.Command("pkg-static", "-C", localpkgconf, "rquery", "%At=%Av", "ports-mgmt/pkg")
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "rquery", "%At=%Av", "ports-mgmt/pkg")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -76,7 +76,7 @@ IGNORE_OSVERSION: YES`
 }
 
 func updatepkgdb() {
-	cmd := exec.Command("pkg-static", "-C", localpkgconf, "update", "-f")
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "update", "-f")
 	sendinfomsg("Updating package remote database")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
