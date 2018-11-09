@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/gorilla/websocket"
 )
@@ -84,8 +86,74 @@ func doupdate(updatefile string) {
 	// Update the package database
 	updatepkgdb()
 
-	log.Println("DONE")
+	// Check that updates are available
+	_, haveupdates := updatedryrun(false)
+	if ( ! haveupdates ) {
+		sendfatalmsg("ERROR: No updates to install!")
+		return
+	}
+
+	// Check host OS version
+	checkosver()
+
+	sendinfomsg("Starting package downloads")
+	//startfetch()
 	os.Exit(0)
+}
+
+func checkosver() {
+	// Check the host OS version
+	OSINT, oerr := syscall.SysctlUint32("kern.osreldate")
+	if ( oerr != nil ) {
+		log.Fatal(oerr)
+	}
+	REMOTEVER, err := getremoteosver()
+	if ( err != nil ) {
+		log.Fatal(err)
+	}
+
+	OSVER := fmt.Sprint(OSINT)
+	if ( OSVER != REMOTEVER ) {
+		sendinfomsg("Remote ABI change detected. Doing full update.")
+	}
+}
+
+func getremoteosver() (string, error) {
+
+	cmd := exec.Command("pkg-static", "-C", localpkgconf, "rquery", "%At=%Av", "ports-mgmt/pkg")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+	// Iterate over buff and append content to the slice
+	var allText []string
+	for buff.Scan() {
+		allText = append(allText, buff.Text()+"\n")
+	}
+	//fmt.Println(allText)
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(strings.Join(allText, "\n")))
+	for scanner.Scan() {
+		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		// Skip empty lines
+		if len(line) == 0 {
+			continue
+		}
+		if ( strings.Contains(line, "FreeBSD_version=")) {
+			strarray := strings.Split(line, "=")
+			return string(strarray[1]), nil
+		}
+	}
+	return "", fmt.Errorf("Failed to get FreeBSD_version", allText)
 }
 
 var localpkgdb = "/var/db/update-go/pkgdb"
@@ -119,7 +187,7 @@ IGNORE_OSVERSION: YES`
 }
 
 func updatepkgdb() {
-	cmd := exec.Command("pkg-static", "-d", "-C", localpkgconf, "update", "-f")
+	cmd := exec.Command("pkg-static", "-C", localpkgconf, "update", "-f")
 	sendinfomsg("Updating package remote database")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -148,6 +216,25 @@ func sendinfomsg(info string) {
 
 	data := &JSONReply{
 		Method:     "info",
+		Info:   info,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func sendfatalmsg(info string) {
+	type JSONReply struct {
+		Method string `json:"method"`
+		Info  string `json:"info"`
+	}
+
+	data := &JSONReply{
+		Method:     "fatal",
 		Info:   info,
 	}
 	msg, err := json.Marshal(data)
@@ -267,7 +354,7 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	return &details
 }
 
-func updatedryrun() {
+func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
 	cmd := exec.Command("pkg-static", "-C", localpkgconf, "upgrade", "-n")
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
@@ -289,44 +376,42 @@ func updatedryrun() {
 	//if err := cmd.Wait(); err != nil {
 	//	log.Fatal(err)
 	//}
+
+	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
+	details := UpdateInfo{ }
+	updetails := &details
+	if ( haveupdates ) {
+		updetails = parseupdatedata(allText)
+	}
+	if ( sendupdate ) {
+		sendupdatedetails(haveupdates, updetails)
+	}
+	return updetails, haveupdates
+}
+
+func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 	type JSONReply struct {
 		Method string `json:"method"`
 		Updates  bool `json:"updates"`
 		Details  *UpdateInfo `json:"details"`
 	}
 
-	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
-	if ( haveupdates ) {
-		updetails := parseupdatedata(allText)
-		data := &JSONReply{
-			Method:     "check",
-			Updates:   haveupdates,
-			Details:   updetails,
-		}
-		msg, err := json.Marshal(data)
-		if err != nil {
-			log.Fatal("Failed encoding JSON:", err)
-		}
-		if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		data := &JSONReply{
-			Method:     "check",
-			Updates:   haveupdates,
-		}
-		msg, err := json.Marshal(data)
-		if err != nil {
-			log.Fatal("Failed encoding JSON:", err)
-		}
-		if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
-			log.Fatal(err)
-		}
+	data := &JSONReply{
+		Method:     "check",
+		Updates:   haveupdates,
+		Details:   updetails,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Fatal(err)
 	}
 }
 
 func checkforupdates() {
 	preparepkgconfig()
 	updatepkgdb()
-	updatedryrun()
+	updatedryrun(true)
 }

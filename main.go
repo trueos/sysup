@@ -107,6 +107,18 @@ func parsejsonmsg(message []byte) int {
 		var infomsg string = s.Info
 		fmt.Println(infomsg)
 
+	case "fatal":
+		var s struct {
+			Envelope
+			InfoMsg
+		}
+		if err := json.Unmarshal(message, &s); err != nil {
+			log.Fatal(err)
+		}
+		var infomsg string = s.Info
+		fmt.Println(infomsg)
+		os.Exit(150)
+
 	default:
 		log.Fatalf("unknown message type: %q", env.Method)
 	}
