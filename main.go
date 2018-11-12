@@ -16,16 +16,20 @@ import (
 )
 
 // Setup our CLI Flags
+var benameflag string
 var checkflag bool
 var fullupdateflag bool
+var stage2flag bool
 var updateflag bool
-var websocketflag bool
 var updatefile string
+var websocketflag bool
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
 	flag.BoolVar(&updateflag, "update", false, "Update to latest packages")
 	flag.BoolVar(&fullupdateflag, "fullupdate", false, "Force a full update")
+	flag.BoolVar(&stage2flag, "stage2", false, "Start stage2 of an update (Normally used internally only)")
 	flag.StringVar(&updatefile, "updatefile", "", "Use the specified update image instead of fetching from remote")
+	flag.StringVar(&benameflag, "bename", "", "Set the name of the new boot-environment for updating. Must not exist yet.")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()
 }
@@ -264,6 +268,10 @@ func main() {
 		connectws()
 		startupdate()
 		closews()
+		os.Exit(0)
+	}
+	if ( stage2flag ) {
+		startstage2()
 		os.Exit(0)
 	}
 	if ( websocketflag ) {
