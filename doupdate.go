@@ -347,25 +347,13 @@ func renamebe() {
 		log.Fatal(err)
 	}
 
-	// Get the current BE root
-	shellcmd := "mount | awk '/ \\/ / {print $1}'"
-	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
-	if ( cmderr != nil ) {
-		log.Fatal("Failed determining ZFS root")
-	}
-	currentbe := output
-        linearray := strings.Split(string(currentbe), "/")
-        if ( len(linearray) < 2) {
-		log.Fatal("Invalid beroot: " + string(currentbe))
-        }
-	beroot := linearray[0] + "/" + linearray[1]
 
 	// Lastly setup a one-time boot of this new BE
 	// This should be zfsbootcfg at some point...
 	cmd = exec.Command("beadm", "activate", BENAME)
 	err = cmd.Run()
 	if ( err != nil ) {
-		log.Fatal("Failed activating: " + BENAME + " " + beroot)
+		log.Fatal("Failed activating: " + BENAME)
 	}
 
 }
@@ -395,6 +383,8 @@ func startstage2() {
 	}
 
 	activatebe()
+
+	updateloader()
 }
 
 func activatebe() {
@@ -477,4 +467,119 @@ func checkosver() {
 		sendinfomsg("Remote ABI change detected. Doing full update.")
 		fullupdateflag = true
 	}
+}
+
+func updateloader() {
+	logtofile("Updating Bootloader\n-------------------")
+}
+
+func getberoot() string {
+	// Get the current BE root
+	shellcmd := "mount | awk '/ \\/ / {print $1}'"
+	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
+	if ( cmderr != nil ) {
+		log.Fatal("Failed determining ZFS root")
+	}
+	currentbe := output
+        linearray := strings.Split(string(currentbe), "/")
+        if ( len(linearray) < 2) {
+		log.Fatal("Invalid beroot: " + string(currentbe))
+        }
+	beroot := linearray[0] + "/" + linearray[1]
+	return beroot
+}
+
+func getzfspool() string {
+	// Get the current BE root
+	shellcmd := "mount | awk '/ \\/ / {print $1}'"
+	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
+	if ( cmderr != nil ) {
+		log.Fatal("Failed determining ZFS root")
+	}
+	currentbe := output
+        linearray := strings.Split(string(currentbe), "/")
+        if ( len(linearray) < 2) {
+		log.Fatal("Invalid beroot: " + string(currentbe))
+        }
+	return linearray[0]
+}
+
+func getzpooldisks() []string {
+	var diskarr []string
+	zpool := getzfspool()
+	kernout, kerr := syscall.Sysctl("kern.disks")
+	if ( kerr != nil ) {
+		log.Fatal(kerr)
+	}
+	kerndisks := strings.Split(string(kernout), " ")
+	for i, _ := range kerndisks {
+		// Yes, CD's show up in this output..
+		if ( strings.Index(kerndisks[i], "cd") == 0) {
+			continue
+		}
+		// Get a list of uuids for the partitions on this disk
+		duuids := getdiskuuids(kerndisks[i])
+
+		// Validate this disk is in the default zpool
+		if ( ! diskisinpool(kerndisks[i], duuids, zpool) ) {
+			continue
+		}
+		logtofile("Updating boot-loader on disk: " + kerndisks[i])
+        }
+	return diskarr
+}
+
+func diskisinpool(disk string, uuids []string, zpool string) bool {
+	cmd := exec.Command("zpool", "status", zpool)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and look for disk matches
+	for buff.Scan() {
+		line := buff.Text()
+		if ( strings.Contains(line, " " + disk + "p") ) {
+			return true
+		}
+		for i, _ := range uuids {
+			if ( strings.Contains(line, " gptid/" + uuids[i] ) ) {
+				return true
+			}
+		}
+	}
+        if err := cmd.Wait(); err != nil {
+              log.Fatal(err)
+        }
+	return false
+}
+
+func getdiskuuids(disk string) []string {
+	var uuidarr []string
+	shellcmd := "gpart list " + disk + " | grep rawuuid | awk '{print $2}'"
+	cmd := exec.Command("/bin/sh", "-c", shellcmd)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and append content to the slice
+	for buff.Scan() {
+		line := buff.Text()
+		uuidarr = append(uuidarr, line)
+	}
+        // Pkg returns 0 on sucess
+        if err := cmd.Wait(); err != nil {
+              log.Fatal(err)
+        }
+
+	return uuidarr
 }
