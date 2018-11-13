@@ -48,6 +48,71 @@ func getremoteosver() (string, error) {
 	return "", fmt.Errorf("Failed to get FreeBSD_version", allText)
 }
 
+func mountofflineupdate() {
+	if _, err := os.Stat(updatefileflag) ; os.IsNotExist(err) {
+		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " does not exist!")
+		closews()
+		os.Exit(1)
+	}
+
+	output, cmderr := exec.Command("mdconfig", "-a", "-t", "vnode", "-f", updatefileflag).Output()
+	if ( cmderr != nil ) {
+		log.Fatal("Failed mdconfig of offline update file...")
+	}
+
+	// Set the mddevice we have mounted
+	localmddev := string(output)
+
+	derr := os.MkdirAll(localimgmnt, 0755)
+	if derr != nil {
+		log.Fatal(derr)
+	}
+
+	cmd := exec.Command("umount", "-f", localimgmnt)
+	cmd.Run()
+
+	// Mount the image RO
+        cmd = exec.Command("mount", "-o", "ro", "/dev/" + localmddev, localimgmnt)
+	err := cmd.Run()
+	if ( err != nil ) {
+		// We failed to mount, cleanup the memory device
+		cmd := exec.Command("mdconfig", "-d", "-u", localmddev)
+		cmd.Run()
+		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " cannot be mounted")
+		closews()
+		os.Exit(1)
+	}
+}
+
+func destroymddev() {
+	cmd := exec.Command("umount", "-f", localimgmnt)
+	cmd.Run()
+        cmd = exec.Command("mdconfig", "-d", "-u", localmddev)
+	cmd.Run()
+}
+
+func mkreposfile(prefix string) string {
+	reposdir := "REPOS_DIR [ \"" + localpkgdb + "/repos\" ]"
+	rerr := os.MkdirAll(localpkgdb + "/repos", 0755)
+	if rerr != nil {
+		log.Fatal(rerr)
+	}
+	// Ugly I know, can probably be re-factored later
+	pkgdata := `Update: {
+  url: ` + localimgmnt
+	if ( updatekeyflag != "" ) {
+		pkgdata += `
+  signature_type: "pubkey"
+  pubkey: "`+ updatekeyflag + `
+`
+	}
+	pkgdata += `
+  enabled: yes
+}`
+	ioutil.WriteFile(prefix + localpkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
+	return reposdir
+}
+
 func preparepkgconfig() {
 	derr := os.MkdirAll(localpkgdb, 0755)
 	if derr != nil {
@@ -56,6 +121,13 @@ func preparepkgconfig() {
 	cerr := os.MkdirAll(localcachedir, 0755)
 	if cerr != nil {
 		log.Fatal(cerr)
+	}
+
+	// If we have an offline file update, lets set that up now
+	var reposdir string
+	if ( updatefileflag != "" ) {
+		mountofflineupdate()
+		reposdir = mkreposfile("")
 	}
 
 	// Copy over the existing local database
@@ -70,9 +142,9 @@ func preparepkgconfig() {
 	// Create the config file
 	fdata := `PKG_CACHEDIR: ` + localcachedir + `
 PKG_DBDIR: ` + localpkgdb + `
-IGNORE_OSVERSION: YES`
+IGNORE_OSVERSION: YES
+` + reposdir
 	ioutil.WriteFile(localpkgconf, []byte(fdata), 0644)
-
 }
 
 func updatepkgdb() {

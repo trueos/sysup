@@ -37,14 +37,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 	        case "check":
 			checkforupdates()
 		case "update":
-	                var s struct {
-				Envelope
-				UpdateReq
-			}
-			if err = json.Unmarshal(message, &s); err != nil {
-				log.Fatal(err)
-			}
-			doupdate(s.Bename, s.Fullupdate, s.Updatefile)
+			doupdate(message)
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}

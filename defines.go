@@ -16,12 +16,16 @@ var (
 )
 var pkgflags string
 
+var logfile = "/var/log/updatego.log"
+
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
 var localpkgdb = "/var/db/update-go/pkgdb"
+var localimgmnt = "/var/db/update-go/mnt"
 var localpkgconf = "/var/db/update-go/pkg.conf"
 var localcachedir = "/var/cache/update-go"
+var localmddev = ""
 //----------------------------------------------------
 
 // Boot-Environment defaults

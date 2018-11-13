@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -16,7 +17,7 @@ import (
 var kernelpkg string = ""
 
 func getkernelpkgname() string {
-	log.Println("Checking kernel package name")
+	logtofile("Checking kernel package name")
 	kernfile, kerr := syscall.Sysctl("kern.bootfile")
 	if ( kerr != nil ) {
 		log.Fatal(kerr)
@@ -41,14 +42,28 @@ func getkernelpkgname() string {
 	return kernel
 }
 
-func doupdate(bename string, fullupdate bool, updatefile string) {
-	fullupdateflag = fullupdate
-	benameflag = bename
-	updatefileflag = updatefile
+func doupdate(message []byte) {
+	// Unpack the options for this update request
+	var s struct {
+		Envelope
+		UpdateReq
+	}
+	if err := json.Unmarshal(message, &s); err != nil {
+		log.Fatal(err)
+	}
+
+	fullupdateflag = s.Fullupdate
+	benameflag = s.Bename
+	updatefileflag = s.Updatefile
+	updatekeyflag = s.Updatekey
 	//log.Println("benameflag: " + benameflag)
 	//log.Println("updatefile: " + updatefileflag)
 
+	// Start a fresh log file
+	rotatelog()
+
 	// Setup the pkg config directory
+	logtofile("Setting up pkg database")
 	preparepkgconfig()
 
 	// Update the package database
@@ -126,14 +141,21 @@ func createnewbe() {
                 log.Fatal(err)
         }
 
+	var reposdir string
+	if ( updatefileflag != "" ) {
+		reposdir = mkreposfile(STAGEDIR)
+	}
+
         // Update the config file
         fdata := `PKG_CACHEDIR: ` + localcachedir + `
-IGNORE_OSVERSION: YES`
+IGNORE_OSVERSION: YES` + `
+` + reposdir
         ioutil.WriteFile(STAGEDIR + localpkgconf, []byte(fdata), 0644)
 }
 
 func updatekernel() {
 	sendinfomsg("Starting stage 1 kernel update")
+	logtofile("KernelUpdate Stage 1\n-----------------------")
 
 	// KPM 11/9/2018
 	// Additionally we may need to do something to ensure we don't load port kmods here on reboot
@@ -152,6 +174,7 @@ func updatekernel() {
 	for buff.Scan() {
 		line := buff.Text()
 		sendinfomsg(line)
+		logtofile(line)
 		allText = append(allText, line+"\n")
 	}
         // Pkg returns 0 on sucess
@@ -159,6 +182,7 @@ func updatekernel() {
               log.Fatal(err)
         }
 	sendinfomsg("Finished stage 1 kernel update")
+	logtofile("FinishedKernelUpdate Stage 1\n-----------------------")
 
 }
 
@@ -168,6 +192,7 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	} else {
 		log.Println("Starting stage 2 package update")
 	}
+	logtofile("PackageUpdate Stage 2\n-----------------------")
 
 	var forceflag string
 	if ( force ) {
@@ -196,6 +221,7 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 		} else {
 			log.Println(line)
 		}
+		logtofile("pkg: " + line)
 		allText = append(allText, line+"\n")
 	}
         // Pkg returns 0 on sucess
@@ -205,6 +231,7 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	if ( usingws ) {
 		sendinfomsg("Finished stage 2 package update")
 	}
+	logtofile("FinishedPackageUpdate Stage 2\n-----------------------")
 
 }
 
@@ -223,6 +250,10 @@ func updatercscript() {
 		fuflag="-fullupdate"
 
 	}
+	var upflag string
+	if ( updatefileflag != "" ) {
+		upflag="-updatefile " + updatefileflag
+	}
 
 	selfbin, _ := os.Executable()
         ugobin := "/.update-go"
@@ -236,7 +267,7 @@ func updatercscript() {
         fdata := `#!/bin/sh
 PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export PATH
-` + ugobin + ` -stage2 ` + fuflag
+` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag
         ioutil.WriteFile(STAGEDIR + "/etc/rc", []byte(fdata), 0755)
 
 }
@@ -247,15 +278,40 @@ func startupgrade(kernelupdate bool) {
 
 	createnewbe()
 
+	// If we are using standalone update need to nullfs mount the pkgs
+	if ( updatefileflag != "" ) {
+		cmd := exec.Command("mount_nullfs", localimgmnt, STAGEDIR + localimgmnt)
+		err := cmd.Run()
+		if ( err != nil ) {
+			log.Fatal(err)
+		}
+	}
+
 	if ( kernelupdate || fullupdateflag) {
 		updatekernel()
 	} else {
 		updateincremental(true, fullupdateflag, true)
 	}
 
+	// Cleanup nullfs mount
+	if ( updatefileflag != "" ) {
+		cmd := exec.Command("umount", "-f", STAGEDIR + localimgmnt)
+		err := cmd.Run()
+		if ( err != nil ) {
+			log.Fatal(err)
+		}
+	}
+
 	updatercscript()
 	renamebe()
+
+	// If we are using standalone update, cleanup
+	if ( updatefileflag != "" ) {
+		destroymddev()
+	}
 	sendinfomsg("Success! Reboot your system to continue the update process.")
+	time.Sleep(500 * time.Millisecond)
+	os.Exit(0)
 }
 
 func renamebe() {
@@ -311,6 +367,7 @@ func renamebe() {
 	if ( err != nil ) {
 		log.Fatal("Failed activating: " + BENAME + " " + beroot)
 	}
+
 }
 
 func startstage2() {
@@ -327,7 +384,15 @@ func startstage2() {
 		log.Fatal(err)
 	}
 
+	if ( updatefileflag != "" ) {
+		mountofflineupdate()
+	}
+
 	updateincremental(false, fullupdateflag, false)
+
+	if ( updatefileflag != "" ) {
+		destroymddev()
+	}
 
 	activatebe()
 }

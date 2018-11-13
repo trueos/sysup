@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"time"
 
@@ -22,6 +23,7 @@ var fullupdateflag bool
 var stage2flag bool
 var updateflag bool
 var updatefileflag string
+var updatekeyflag string
 var websocketflag bool
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
@@ -29,6 +31,7 @@ func init() {
 	flag.BoolVar(&fullupdateflag, "fullupdate", false, "Force a full update")
 	flag.BoolVar(&stage2flag, "stage2", false, "Start stage2 of an update (Normally used internally only)")
 	flag.StringVar(&updatefileflag, "updatefile", "", "Use the specified update image instead of fetching from remote")
+	flag.StringVar(&updatekeyflag, "updatekey", "", "Use the specified update pubkey for offline updates (Defaults to none)")
 	flag.StringVar(&benameflag, "bename", "", "Set the name of the new boot-environment for updating. Must not exist yet.")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()
@@ -48,10 +51,32 @@ type UpdateReq struct {
 	Bename string `json:"bename"`
 	Fullupdate bool `json:"fullupdate"`
 	Updatefile string `json:"updatefile"`
+	Updatekey string `json:"updatekey"`
 }
 
 type InfoMsg struct {
 	Info string
+}
+
+func rotatelog() {
+	if _, err := os.Stat(logfile) ; os.IsNotExist(err) {
+		return
+	}
+	cmd := exec.Command("mv", logfile, logfile + ".previous")
+	cmd.Run()
+}
+
+func logtofile(info string) {
+	f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if _, err := f.Write([]byte(info + "\n")); err != nil {
+		log.Fatal(err)
+	}
+	if err:= f.Close(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func printupdatedetails(details UpdateInfo) {
@@ -187,7 +212,6 @@ var (
         c   *websocket.Conn
 )
 func connectws() {
-	time.Sleep(2 * time.Second);
 	log.SetFlags(0)
 
 	interrupt := make(chan os.Signal, 1)
