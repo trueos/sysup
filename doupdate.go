@@ -133,7 +133,7 @@ func updatekernel() {
 
 	// KPM 11/9/2018
 	// Additionally we may need to do something to ensure we don't load port kmods here on reboot
-	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-y", "-f", kernelpkg)
+	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", kernelpkg)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -170,9 +170,9 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 		forceflag="-f"
 	}
 
-	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-y", forceflag)
+	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", forceflag)
 	if ( ! chroot ) {
-		cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-y", forceflag)
+		cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y", forceflag)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
