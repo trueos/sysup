@@ -44,7 +44,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			if err = json.Unmarshal(message, &s); err != nil {
 				log.Fatal(err)
 			}
-			doupdate(s.Updatefile)
+			doupdate(s.Bename, s.Fullupdate, s.Updatefile)
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}
@@ -66,6 +66,25 @@ func sendinfomsg(info string) {
 
 	data := &JSONReply{
 		Method:     "info",
+		Info:   info,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func sendshutdownmsg(info string) {
+	type JSONReply struct {
+		Method string `json:"method"`
+		Info  string `json:"info"`
+	}
+
+	data := &JSONReply{
+		Method:     "shutdown",
 		Info:   info,
 	}
 	msg, err := json.Marshal(data)

@@ -41,8 +41,12 @@ func getkernelpkgname() string {
 	return kernel
 }
 
-func doupdate(updatefile string) {
-	log.Println("updatefile: " + updatefile)
+func doupdate(bename string, fullupdate bool, updatefile string) {
+	fullupdateflag = fullupdate
+	benameflag = bename
+	updatefileflag = updatefile
+	//log.Println("benameflag: " + benameflag)
+	//log.Println("updatefile: " + updatefileflag)
 
 	// Setup the pkg config directory
 	preparepkgconfig()
