@@ -471,6 +471,133 @@ func checkosver() {
 
 func updateloader() {
 	logtofile("Updating Bootloader\n-------------------")
+	disks := getzpooldisks()
+	for i, _ := range disks {
+		if (isuefi(disks[i])) {
+			updateuefi(disks[i])
+		} else {
+			updategpt(disks[i])
+		}
+	}
+}
+
+func updateuefi(disk string) bool {
+        derr := os.MkdirAll("/boot/efi", 0755)
+        if derr != nil {
+                log.Fatal(derr)
+        }
+
+	cmd := exec.Command("gpart", "show", disk)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and look for specific boot partition
+	for buff.Scan() {
+		line := strings.TrimSpace(buff.Text())
+		if ( strings.Contains(line, " efi ") ) {
+			linearray := strings.Split(string(line), " ")
+			if ( len(linearray) < 3) {
+				logtofile("Unable to locate EFI partition..." + string(line))
+				return false
+			}
+			part := linearray[2]
+
+			// Mount the UEFI partition
+			bcmd := exec.Command("mount", "-t", "msdosfs", "/dev/" + disk + "p" +  part, "/boot/efi")
+			berr := bcmd.Run()
+			if berr != nil {
+				logtofile("Unable to mount EFI partition: " + part)
+				return false
+			}
+
+			// Copy the new UEFI file over
+			var tgt string
+			if _, err := os.Stat("/boot/efi/efi/boot/bootx64-trueos.efi") ; os.IsNotExist(err) {
+				tgt = "/boot/efi/efi/boot/bootx64-trueos.efi"
+			} else {
+				tgt = "/boot/efi/efi/boot/bootx64.efi"
+			}
+			cmd := exec.Command("cp", "/boot/boot1.efi", tgt)
+			cerr := cmd.Run()
+			if cerr != nil {
+				logtofile("Unable to copy efi file: " + tgt)
+				return false
+			}
+
+			// Unmount and cleanup
+			bcmd = exec.Command("umount", "-f", "/boot/efi")
+			berr = bcmd.Run()
+			if berr != nil {
+				logtofile("Unable to umount EFI partition: " + part)
+				return false
+			}
+
+			return true
+		}
+	}
+	logtofile("Unable to locate EFI partition on: " + string(disk))
+	return false
+}
+
+
+func updategpt(disk string) bool {
+	cmd := exec.Command("gpart", "show", disk)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and look for specific boot partition
+	for buff.Scan() {
+		line := strings.TrimSpace(buff.Text())
+		if ( strings.Contains(line, " freebsd-boot ") ) {
+			linearray := strings.Split(string(line), " ")
+			if ( len(linearray) < 3) {
+				logtofile("Unable to locate GPT boot partition..." + string(line))
+				return false
+			}
+			part := linearray[2]
+			bcmd := exec.Command("gpart", "bootcode", "-b", "/boot/pmbr", "-p", "gptzfsboot", "-i", part)
+			berr := bcmd.Run()
+			if berr != nil {
+				log.Fatal(berr)
+			}
+			return true
+		}
+	}
+	logtofile("Unable to locate freebsd-boot partition on: " + string(disk))
+	return false
+}
+
+func isuefi(disk string) bool {
+	cmd := exec.Command("gpart", "show", disk)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and look for disk matches
+	for buff.Scan() {
+		line := buff.Text()
+		if ( strings.Contains(line, "freebsd-boot") ) {
+			return true
+		}
+	}
+	return false
 }
 
 func getberoot() string {
