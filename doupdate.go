@@ -329,9 +329,13 @@ func renamebe() {
 		BENAME = benameflag
 	}
 
-	// Write the new BENAME
+	// Write the old BE name
         fdata := BENAME
         ioutil.WriteFile(STAGEDIR + "/.updategobename", []byte(fdata), 0644)
+
+	// Write the old BE name
+        odata := getcurrentbe()
+        ioutil.WriteFile(STAGEDIR + "/.updategoolddbename", []byte(odata), 0644)
 
 	// Start by unmounting BE
 	cmd := exec.Command("beadm", "umount", "-f", BESTAGE)
@@ -358,19 +362,71 @@ func renamebe() {
 
 }
 
-func startstage2() {
+/*
+* Something has gone horribly wrong, lets make a copy of the
+* log file and reboot into the old BE for later debugging
+*/
+func copylogexit(perr error, text string) {
+
+	logtofile("FAILED Upgrade!!!")
+	logtofile(text)
+
+	cmd := exec.Command(BEBIN, "mount", BESTAGE, STAGEDIR)
+	cmd.Run()
+
+	src := logfile
+        dest := STAGEDIR + "/var/log/update-go.failed"
+        cpCmd := exec.Command("cp", src, dest)
+	cpCmd.Run()
+
+	cmd = exec.Command(BEBIN, "umount", "-f", BESTAGE)
+	cmd.Run()
+
+	cmd = exec.Command("reboot")
+	cmd.Run()
+	os.Exit(0)
+}
+
+func preparestage2() {
 	// Need to ensure ZFS is all mounted and ready
 	cmd := exec.Command("mount", "-u", "rw", "/")
 	err := cmd.Run()
 	if ( err != nil ) {
-		log.Fatal(err)
+		copylogexit(err, "Failed mounting -u rw")
 	}
 
+	// Make sure everything is mounted and ready!
 	cmd = exec.Command("zfs", "mount", "-a")
 	err = cmd.Run()
 	if ( err != nil ) {
-		log.Fatal(err)
+		copylogexit(err, "Failed zfs mount -a")
 	}
+
+	// Set the OLD BE as the default in case we crash and burn...
+	dat, err := ioutil.ReadFile("/.updategooldbename")
+	if ( err != nil ) {
+		copylogexit(err, "Failed read .updategooldbename")
+	}
+	bename := string(dat)
+	cmd = exec.Command("beadm", "activate", bename)
+	err = cmd.Run()
+	if ( err != nil ) {
+		copylogexit(err, "Failed beadm activate: " + bename)
+	}
+
+	// Put back /etc/rc-updatergo so that pkg can update it properly
+	src := "/etc/rc-updatergo"
+        dest := "/etc/rc"
+        cpCmd := exec.Command("mv", src, dest)
+	err = cpCmd.Run()
+        if ( err != nil ) {
+		copylogexit(err, "Failed restoring /etc/rc")
+        }
+}
+
+func startstage2() {
+
+	preparestage2()
 
 	if ( updatefileflag != "" ) {
 		mountofflineupdate()
@@ -382,39 +438,33 @@ func startstage2() {
 		destroymddev()
 	}
 
+	// SUCCESS! Lets finish and activate the new BE
 	activatebe()
 
+	// Lastly lets update the loader
 	updateloader()
+
+	// Lastly reboot into the new environment
+	cmd := exec.Command("reboot")
+	err := cmd.Run()
+	if ( err != nil ) {
+		log.Fatal(err)
+	}
+
 }
 
 func activatebe() {
 	dat, err := ioutil.ReadFile("/.updategobename")
 	if ( err != nil ) {
-		log.Fatal(err)
+		copylogexit(err, "Failed reading updategobename")
 	}
-
-	// Put back /etc/rc
-        src := "/etc/rc-updatergo"
-        dest := "/etc/rc"
-        cpCmd := exec.Command("mv", src, dest)
-	err = cpCmd.Run()
-        if ( err != nil ) {
-                log.Fatal(err)
-        }
 
 	// Activate the boot-environment
 	bename := string(dat)
 	cmd := exec.Command("beadm", "activate", bename)
 	err = cmd.Run()
 	if ( err != nil ) {
-		log.Fatal(err)
-	}
-
-	// Lastly reboot into the new environment
-	cmd = exec.Command("reboot")
-	err = cmd.Run()
-	if ( err != nil ) {
-		log.Fatal(err)
+		copylogexit(err, "Failed beadm activate: " + bename)
 	}
 }
 
@@ -474,8 +524,10 @@ func updateloader() {
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if (isuefi(disks[i])) {
+			logtofile("Updating EFI boot-loader on: " + disks[i])
 			updateuefi(disks[i])
 		} else {
+			logtofile("Updating GPT boot-loader on: " + disks[i])
 			updategpt(disks[i])
 		}
 	}
@@ -484,16 +536,16 @@ func updateloader() {
 func updateuefi(disk string) bool {
         derr := os.MkdirAll("/boot/efi", 0755)
         if derr != nil {
-                log.Fatal(derr)
+		copylogexit(derr, "Failed mkdir /boot/efi")
         }
 
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		copylogexit(derr, "Failed gpart show")
 	}
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		copylogexit(derr, "Failed starting gpart show")
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -550,10 +602,10 @@ func updategpt(disk string) bool {
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		copylogexit(err, "Failed gpart show")
 	}
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		copylogexit(err, "Failed starting gpart show")
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -570,7 +622,7 @@ func updategpt(disk string) bool {
 			bcmd := exec.Command("gpart", "bootcode", "-b", "/boot/pmbr", "-p", "gptzfsboot", "-i", part)
 			berr := bcmd.Run()
 			if berr != nil {
-				log.Fatal(berr)
+				copylogexit(berr, "Failed gpart bootcode -b /boot/pmbr -p gptzfsboot -i " + part)
 			}
 			return true
 		}
@@ -583,10 +635,10 @@ func isuefi(disk string) bool {
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		copylogexit(err, "Failed gpart show (isuefi)")
 	}
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		copylogexit(err, "Failed starting gpart show (isuefiu)")
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -614,6 +666,22 @@ func getberoot() string {
         }
 	beroot := linearray[0] + "/" + linearray[1]
 	return beroot
+}
+
+func getcurrentbe() string {
+	// Get the current BE root
+	shellcmd := "mount | awk '/ \\/ / {print $1}'"
+	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
+	if ( cmderr != nil ) {
+		log.Fatal("Failed determining ZFS root")
+	}
+	currentbe := output
+        linearray := strings.Split(string(currentbe), "/")
+        if ( len(linearray) < 2) {
+		log.Fatal("Invalid beroot: " + string(currentbe))
+        }
+	be := linearray[2]
+	return be
 }
 
 func getzfspool() string {

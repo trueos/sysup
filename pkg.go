@@ -57,7 +57,7 @@ func mountofflineupdate() {
 
 	output, cmderr := exec.Command("mdconfig", "-a", "-t", "vnode", "-f", updatefileflag).Output()
 	if ( cmderr != nil ) {
-		exitcleanup(derr, "Failed mdconfig of offline update file: " + updatefileflag)
+		exitcleanup(cmderr, "Failed mdconfig of offline update file: " + updatefileflag)
 	}
 
 	// Set the mddevice we have mounted
