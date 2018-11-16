@@ -125,6 +125,11 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
 	if ( sendupdate ) {
 		sendupdatedetails(haveupdates, updetails)
 	}
+
+        // If we are using standalone update, cleanup
+        if ( updatefileflag != "" ) {
+                destroymddev()
+        }
 	return updetails, haveupdates
 }
 

@@ -28,7 +28,7 @@ func getremoteosver() (string, error) {
 	}
 	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
+		exitcleanup(err, "Failed getting remote version of ports-mgmt/pkg.")
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(allText, "\n")))
@@ -57,11 +57,12 @@ func mountofflineupdate() {
 
 	output, cmderr := exec.Command("mdconfig", "-a", "-t", "vnode", "-f", updatefileflag).Output()
 	if ( cmderr != nil ) {
-		log.Fatal("Failed mdconfig of offline update file...")
+		exitcleanup(derr, "Failed mdconfig of offline update file: " + updatefileflag)
 	}
 
 	// Set the mddevice we have mounted
-	localmddev := string(output)
+	localmddev := strings.TrimSpace(string(output))
+	//log.Println("Local MD device: " + localmddev)
 
 	derr := os.MkdirAll(localimgmnt, 0755)
 	if derr != nil {
@@ -92,7 +93,7 @@ func destroymddev() {
 }
 
 func mkreposfile(prefix string) string {
-	reposdir := "REPOS_DIR [ \"" + localpkgdb + "/repos\" ]"
+	reposdir := "REPOS_DIR: [ \"" + localpkgdb + "/repos\", ]"
 	rerr := os.MkdirAll(localpkgdb + "/repos", 0755)
 	if rerr != nil {
 		log.Fatal(rerr)
@@ -105,22 +106,26 @@ func mkreposfile(prefix string) string {
   signature_type: "pubkey"
   pubkey: "`+ updatekeyflag + `
 `
+	} else {
+		pkgdata += `
+  signature_type: "none"
+`
 	}
 	pkgdata += `
   enabled: yes
 }`
-	ioutil.WriteFile(prefix + localpkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
+	ioutil.WriteFile("file://" + prefix + localpkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
 	return reposdir
 }
 
 func preparepkgconfig() {
 	derr := os.MkdirAll(localpkgdb, 0755)
 	if derr != nil {
-		log.Fatal(derr)
+		exitcleanup(derr, "Failed making directory: " + localpkgdb)
 	}
 	cerr := os.MkdirAll(localcachedir, 0755)
 	if cerr != nil {
-		log.Fatal(cerr)
+		exitcleanup(cerr, "Failed making directory: " + localcachedir)
 	}
 
 	// If we have an offline file update, lets set that up now
@@ -136,7 +141,7 @@ func preparepkgconfig() {
 	cpCmd := exec.Command("cp", "-f", srcFolder, destFolder)
 	err := cpCmd.Run()
 	if ( err != nil ) {
-		log.Fatal(err)
+		exitcleanup(err, "Failed copy of /var/db/pkg/local.sqlite")
 	}
 
 	// Create the config file
@@ -152,10 +157,10 @@ func updatepkgdb() {
 	sendinfomsg("Updating package remote database")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		exitcleanup(err, "Failed updating package remote DB")
 	}
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		exitcleanup(err, "Failed starting update of package remote DB")
 	}
 	buff := bufio.NewScanner(stdout)
 	// Iterate over buff and append content to the slice
@@ -165,6 +170,15 @@ func updatepkgdb() {
 	}
 	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
+		exitcleanup(err, "Failed running pkg update -f")
 	}
+}
+
+func exitcleanup(err error, text string) {
+        // If we are using standalone update, cleanup
+        if ( updatefileflag != "" && localmddev != "" ) {
+                destroymddev()
+        }
+	log.Println("ERROR: " + text)
+	log.Fatal(err)
 }
