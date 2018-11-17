@@ -403,7 +403,7 @@ func preparestage2() {
 	// Now activate
 	out, err := exec.Command("beadm", "activate", bename).CombinedOutput()
 	if ( err != nil ) {
-		copylogexit(err, "Failed beadm activate: " + bename + " " + out)
+		copylogexit(err, "Failed beadm activate: " + bename + " " + string(out))
 	}
 
 	// Make sure everything is mounted and ready!
