@@ -335,7 +335,7 @@ func renamebe() {
 
 	// Write the old BE name
         odata := getcurrentbe()
-        ioutil.WriteFile(STAGEDIR + "/.updategoolddbename", []byte(odata), 0644)
+        ioutil.WriteFile(STAGEDIR + "/.updategooldbename", []byte(odata), 0644)
 
 	// Start by unmounting BE
 	cmd := exec.Command("beadm", "umount", "-f", BESTAGE)
@@ -369,20 +369,10 @@ func renamebe() {
 func copylogexit(perr error, text string) {
 
 	logtofile("FAILED Upgrade!!!")
+	logtofile(perr.Error())
 	logtofile(text)
 
-	cmd := exec.Command(BEBIN, "mount", BESTAGE, STAGEDIR)
-	cmd.Run()
-
-	src := logfile
-        dest := STAGEDIR + "/var/log/update-go.failed"
-        cpCmd := exec.Command("cp", src, dest)
-	cpCmd.Run()
-
-	cmd = exec.Command(BEBIN, "umount", "-f", BESTAGE)
-	cmd.Run()
-
-	cmd = exec.Command("reboot")
+	cmd := exec.Command("reboot")
 	cmd.Run()
 	os.Exit(0)
 }
