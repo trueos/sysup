@@ -334,7 +334,7 @@ func renamebe() {
         ioutil.WriteFile(STAGEDIR + "/.updategobename", []byte(fdata), 0644)
 
 	// Write the old BE name
-        odata := getcurrentbe()
+        odata := strings.TrimSpace(getcurrentbe())
         ioutil.WriteFile(STAGEDIR + "/.updategooldbename", []byte(odata), 0644)
 
 	// Start by unmounting BE
@@ -371,6 +371,12 @@ func copylogexit(perr error, text string) {
 	logtofile("FAILED Upgrade!!!")
 	logtofile(perr.Error())
 	logtofile(text)
+	log.Println(text)
+
+	src := logfile
+        dest := "/var/log/updatego.failed"
+        cpCmd := exec.Command("cp", src, dest)
+	cpCmd.Run()
 
 	cmd := exec.Command("reboot")
 	cmd.Run()
@@ -378,6 +384,8 @@ func copylogexit(perr error, text string) {
 }
 
 func preparestage2() {
+	log.Println("Preparing to start update...")
+
 	// Need to ensure ZFS is all mounted and ready
 	cmd := exec.Command("mount", "-u", "rw", "/")
 	err := cmd.Run()
@@ -385,23 +393,24 @@ func preparestage2() {
 		copylogexit(err, "Failed mounting -u rw")
 	}
 
-	// Make sure everything is mounted and ready!
-	cmd = exec.Command("zfs", "mount", "-a")
-	err = cmd.Run()
-	if ( err != nil ) {
-		copylogexit(err, "Failed zfs mount -a")
-	}
-
 	// Set the OLD BE as the default in case we crash and burn...
 	dat, err := ioutil.ReadFile("/.updategooldbename")
 	if ( err != nil ) {
 		copylogexit(err, "Failed read .updategooldbename")
 	}
-	bename := string(dat)
-	cmd = exec.Command("beadm", "activate", bename)
+
+	bename := strings.TrimSpace(string(dat))
+	// Now activate
+	out, err := exec.Command("beadm", "activate", bename).CombinedOutput()
+	if ( err != nil ) {
+		copylogexit(err, "Failed beadm activate: " + bename + " " + out)
+	}
+
+	// Make sure everything is mounted and ready!
+	cmd = exec.Command("zfs", "mount", "-a")
 	err = cmd.Run()
 	if ( err != nil ) {
-		copylogexit(err, "Failed beadm activate: " + bename)
+		copylogexit(err, "Failed zfs mount -a")
 	}
 
 	// Put back /etc/rc-updatergo so that pkg can update it properly
