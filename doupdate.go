@@ -179,7 +179,7 @@ func updatekernel() {
 	}
         // Pkg returns 0 on sucess
         if err := cmd.Wait(); err != nil {
-              log.Fatal(err)
+		sendfatalmsg("Failed kernel update!")
         }
 	sendinfomsg("Finished stage 1 kernel update")
 	logtofile("FinishedKernelUpdate Stage 1\n-----------------------")
@@ -205,10 +205,18 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		if ( usingws ) {
+			sendfatalmsg("Failed starting pkg upgrade stdout!")
+		} else {
+			copylogexit(err, "Failed starting pkg upgrade stdout!")
+		}
 	}
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		if ( usingws) {
+			sendfatalmsg("Failed starting pkg upgrade!")
+		} else {
+			copylogexit(err, "Failed starting pkg upgrade!")
+		}
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -226,7 +234,11 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	}
         // Pkg returns 0 on sucess
         if err := cmd.Wait(); err != nil {
-              log.Fatal(err)
+		if ( usingws) {
+			sendfatalmsg("Failed pkg upgrade!")
+		} else {
+			copylogexit(err, "Failed pkg upgrade!")
+		}
         }
 	if ( usingws ) {
 		sendinfomsg("Finished stage 2 package update")
@@ -411,6 +423,18 @@ func preparestage2() {
 	err = cmd.Run()
 	if ( err != nil ) {
 		copylogexit(err, "Failed zfs mount -a")
+	}
+
+	// Need to try and kldload linux64 / linux so some packages can update
+	cmd = exec.Command("kldload", "linux64")
+	err = cmd.Run()
+	if ( err != nil ) {
+		logtofile("WARNING: unable to kldload linux64")
+	}
+	cmd = exec.Command("kldload", "linux")
+	err = cmd.Run()
+	if ( err != nil ) {
+		logtofile("WARNING: unable to kldload linux")
 	}
 
 	// Put back /etc/rc-updatergo so that pkg can update it properly
