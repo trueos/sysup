@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -283,7 +284,18 @@ func startupdate() {
 	}
 }
 
+func checkuid() {
+	user, _ := user.Current()
+	if ( user.Uid != "0" ) {
+		fmt.Println("ERROR: Must be run as root")
+		os.Exit(1)
+	}
+}
+
 func main() {
+
+	checkuid()
+
 	if len(os.Args) == 1 {
 		flag.Usage()
 	}
