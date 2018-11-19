@@ -495,9 +495,9 @@ func startfetch() error {
 
 	var dependflag string
 	if ( fullupdateflag ) {
-		dependflag = "-d"
+		dependflag = "-f"
 	}
-	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "fetch", "-y", "-u", dependflag)
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-F", "-y", "-U", dependflag)
 	sendinfomsg("Starting package downloads")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
