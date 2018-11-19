@@ -12,7 +12,7 @@ import (
 
 func getremoteosver() (string, error) {
 
-	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "rquery", "%At=%Av", "ports-mgmt/pkg")
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "rquery", "-U", "%At=%Av", "ports-mgmt/pkg")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -28,7 +28,7 @@ func getremoteosver() (string, error) {
 	}
 	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		exitcleanup(err, "Failed getting remote version of ports-mgmt/pkg.")
+		exitcleanup(err, "Failed getting remote version of ports-mgmt/pkg: " + strings.Join(allText, "\n"))
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(allText, "\n")))
@@ -86,15 +86,18 @@ func mountofflineupdate() {
 }
 
 func destroymddev() {
+	if ( updatefileflag == "" ) {
+		return
+	}
 	cmd := exec.Command("umount", "-f", localimgmnt)
 	cmd.Run()
         cmd = exec.Command("mdconfig", "-d", "-u", localmddev)
 	cmd.Run()
 }
 
-func mkreposfile(prefix string) string {
-	reposdir := "REPOS_DIR: [ \"" + localpkgdb + "/repos\", ]"
-	rerr := os.MkdirAll(localpkgdb + "/repos", 0755)
+func mkreposfile(prefix string, pkgdb string) string {
+	reposdir := "REPOS_DIR: [ \"" + pkgdb + "/repos\", ]"
+	rerr := os.MkdirAll(pkgdb + "/repos", 0755)
 	if rerr != nil {
 		log.Fatal(rerr)
 	}
@@ -114,7 +117,7 @@ func mkreposfile(prefix string) string {
 	pkgdata += `
   enabled: yes
 }`
-	ioutil.WriteFile("file://" + prefix + localpkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
+	ioutil.WriteFile("file://" + prefix + pkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
 	return reposdir
 }
 
@@ -130,9 +133,10 @@ func preparepkgconfig() {
 
 	// If we have an offline file update, lets set that up now
 	var reposdir string
+	log.Println("before updatefileflag: " + updatefileflag)
 	if ( updatefileflag != "" ) {
 		mountofflineupdate()
-		reposdir = mkreposfile("")
+		reposdir = mkreposfile("", localpkgdb)
 	}
 
 	// Copy over the existing local database

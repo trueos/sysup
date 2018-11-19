@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 )
@@ -106,4 +107,5 @@ func sendfatalmsg(info string) {
 	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Fatal(err)
 	}
+	os.Exit(1)
 }

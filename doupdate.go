@@ -20,25 +20,32 @@ func getkernelpkgname() string {
 	logtofile("Checking kernel package name")
 	kernfile, kerr := syscall.Sysctl("kern.bootfile")
 	if ( kerr != nil ) {
+		logtofile("Failed getting kern.bootfile")
 		log.Fatal(kerr)
 	}
 	kernpkgout, perr := exec.Command(PKGBIN, "which", kernfile).Output()
 	if ( perr != nil ) {
+		logtofile("Failed which " + kernfile)
 		log.Fatal(perr)
 	}
 	kernarray := strings.Split(string(kernpkgout), " ")
 	if ( len(kernarray) < 6 ) {
+		logtofile("Unable to determine kernel package name")
 		log.Fatal("Unable to determine kernel package name")
 	}
 	kernpkg := kernarray[5]
 	kernpkg = strings.TrimSpace(kernpkg)
-	cmd := exec.Command(PKGBIN, "query", "%n", string(kernpkg))
+	logtofile("Local Kernel package: " + kernpkg)
+	shellcmd := PKGBIN + " info " + kernpkg + " | grep '^Name' | awk '{print $3}'"
+	cmd := exec.Command("/bin/sh", "-c", shellcmd)
 	kernpkgname, err := cmd.CombinedOutput()
 	if err != nil {
 	    fmt.Println(fmt.Sprint(err) + ": " + string(kernpkgname))
-	    log.Fatal("ERROR")
+	    log.Fatal("ERROR query of kernel package name")
 	}
 	kernel := strings.TrimSpace(string(kernpkgname))
+
+	logtofile("Kernel package: " + kernel)
 	return kernel
 }
 
@@ -57,7 +64,7 @@ func doupdate(message []byte) {
 	updatefileflag = s.Updatefile
 	updatekeyflag = s.Updatekey
 	//log.Println("benameflag: " + benameflag)
-	//log.Println("updatefile: " + updatefileflag)
+	log.Println("updatefile: " + updatefileflag)
 
 	// Start a fresh log file
 	rotatelog()
@@ -67,9 +74,11 @@ func doupdate(message []byte) {
 	preparepkgconfig()
 
 	// Update the package database
+	logtofile("Updating package repo database")
 	updatepkgdb()
 
 	// Check that updates are available
+	logtofile("Checking for updates")
 	details, haveupdates := updatedryrun(false)
 	if ( ! haveupdates ) {
 		sendfatalmsg("ERROR: No updates to install!")
@@ -77,10 +86,14 @@ func doupdate(message []byte) {
 	}
 
 	// Check host OS version
+	logtofile("Checking OS version")
 	checkosver()
 
-	// Start downloading our files
-	startfetch()
+	// Start downloading our files if we aren't doing stand-alone upgrade
+	if ( updatefileflag == "" ) {
+		logtofile("Fetching file updates")
+		startfetch()
+	}
 
 	// Search if a kernel is apart of this update
 	kernel := getkernelpkgname()
@@ -143,7 +156,7 @@ func createnewbe() {
 
 	var reposdir string
 	if ( updatefileflag != "" ) {
-		reposdir = mkreposfile(STAGEDIR)
+		reposdir = mkreposfile(STAGEDIR, "/var/db/pkg")
 	}
 
         // Update the config file
@@ -194,25 +207,32 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	}
 	logtofile("PackageUpdate Stage 2\n-----------------------")
 
-	var forceflag string
+	cmd := exec.Command(PKGBIN)
 	if ( force ) {
-		forceflag="-f"
-	}
-
-	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", forceflag)
-	if ( ! chroot ) {
-		cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y", forceflag)
+		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f")
+		if ( ! chroot ) {
+			cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y", "-f")
+		}
+	} else {
+		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y")
+		if ( ! chroot ) {
+			cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y")
+		}
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		destroymddev()
 		if ( usingws ) {
+			logtofile("Failed starting pkg upgrade stdout!")
 			sendfatalmsg("Failed starting pkg upgrade stdout!")
 		} else {
 			copylogexit(err, "Failed starting pkg upgrade stdout!")
 		}
 	}
 	if err := cmd.Start(); err != nil {
+		destroymddev()
 		if ( usingws) {
+			logtofile("Failed starting pkg upgrade!")
 			sendfatalmsg("Failed starting pkg upgrade!")
 		} else {
 			copylogexit(err, "Failed starting pkg upgrade!")
@@ -234,7 +254,9 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	}
         // Pkg returns 0 on sucess
         if err := cmd.Wait(); err != nil {
+		destroymddev()
 		if ( usingws) {
+			logtofile("Failed pkg upgrade!")
 			sendfatalmsg("Failed pkg upgrade!")
 		} else {
 			copylogexit(err, "Failed pkg upgrade!")
@@ -292,6 +314,7 @@ func startupgrade(kernelupdate bool) {
 
 	// If we are using standalone update need to nullfs mount the pkgs
 	if ( updatefileflag != "" ) {
+		logtofile("Mounting nullfs")
 		cmd := exec.Command("mount_nullfs", localimgmnt, STAGEDIR + localimgmnt)
 		err := cmd.Run()
 		if ( err != nil ) {
@@ -299,14 +322,17 @@ func startupgrade(kernelupdate bool) {
 		}
 	}
 
+
 	if ( kernelupdate || fullupdateflag) {
 		updatekernel()
+		updatercscript()
 	} else {
 		updateincremental(true, fullupdateflag, true)
 	}
 
 	// Cleanup nullfs mount
 	if ( updatefileflag != "" ) {
+		logtofile("Unmount nullfs")
 		cmd := exec.Command("umount", "-f", STAGEDIR + localimgmnt)
 		err := cmd.Run()
 		if ( err != nil ) {
@@ -314,13 +340,15 @@ func startupgrade(kernelupdate bool) {
 		}
 	}
 
-	updatercscript()
+	// Unmount the devfs point
+	cmd := exec.Command("umount", "-f", STAGEDIR + "/dev")
+	cmd.Run()
+
+	// Rename to proper BE name
 	renamebe()
 
 	// If we are using standalone update, cleanup
-	if ( updatefileflag != "" ) {
-		destroymddev()
-	}
+	destroymddev()
 	sendinfomsg("Success! Reboot your system to continue the update process.")
 	time.Sleep(500 * time.Millisecond)
 	os.Exit(0)
@@ -457,9 +485,7 @@ func startstage2() {
 
 	updateincremental(false, fullupdateflag, false)
 
-	if ( updatefileflag != "" ) {
-		destroymddev()
-	}
+	destroymddev()
 
 	// SUCCESS! Lets finish and activate the new BE
 	activatebe()

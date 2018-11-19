@@ -98,9 +98,11 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		log.Println("Failed dry run")
 		log.Fatal(err)
 	}
 	if err := cmd.Start(); err != nil {
+		log.Println("Failed starting dry run")
 		log.Fatal(err)
 	}
 	buff := bufio.NewScanner(stdout)
@@ -110,7 +112,7 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
 	for buff.Scan() {
 		allText = append(allText, buff.Text()+"\n")
 	}
-	//fmt.Println(allText)
+	//log.Println(allText)
 	// Pkg returns 0 on sucess and 1 on updates needed
 	//if err := cmd.Wait(); err != nil {
 	//	log.Fatal(err)
@@ -122,14 +124,7 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
 	if ( haveupdates ) {
 		updetails = parseupdatedata(allText)
 	}
-	if ( sendupdate ) {
-		sendupdatedetails(haveupdates, updetails)
-	}
 
-        // If we are using standalone update, cleanup
-        if ( updatefileflag != "" ) {
-                destroymddev()
-        }
 	return updetails, haveupdates
 }
 
@@ -157,5 +152,14 @@ func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 func checkforupdates() {
 	preparepkgconfig()
 	updatepkgdb()
-	updatedryrun(true)
+	updetails, haveupdates := updatedryrun(true)
+
+        // If we are using standalone update, cleanup
+        if ( updatefileflag != "" ) {
+                destroymddev()
+        }
+
+	if ( haveupdates ) {
+		sendupdatedetails(haveupdates, updetails)
+	}
 }
