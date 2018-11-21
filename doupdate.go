@@ -284,7 +284,7 @@ func updatercscript() {
 	}
 
 	selfbin, _ := os.Executable()
-        ugobin := "/.update-go"
+        ugobin := "/." + toolname
         cpCmd = exec.Command("install", "-m", "755", selfbin, STAGEDIR + ugobin)
 	err = cpCmd.Run()
         if ( err != nil ) {
