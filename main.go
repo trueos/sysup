@@ -17,48 +17,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Setup our CLI Flags
-var benameflag string
-var checkflag bool
-var fullupdateflag bool
-var stage2flag bool
-var updateflag bool
-var updatefileflag string
-var updatekeyflag string
-var websocketflag bool
-func init() {
-	flag.BoolVar(&checkflag, "check", false, "Check system status")
-	flag.BoolVar(&updateflag, "update", false, "Update to latest packages")
-	flag.BoolVar(&fullupdateflag, "fullupdate", false, "Force a full update")
-	flag.BoolVar(&stage2flag, "stage2", false, "Start stage2 of an update (Normally used internally only)")
-	flag.StringVar(&updatefileflag, "updatefile", "", "Use the specified update image instead of fetching from remote")
-	flag.StringVar(&updatekeyflag, "updatekey", "", "Use the specified update pubkey for offline updates (Defaults to none)")
-	flag.StringVar(&benameflag, "bename", "", "Set the name of the new boot-environment for updating. Must not exist yet.")
-	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
-	flag.Parse()
-}
-
-type Envelope struct {
-	Method string
-}
-
-type Check struct {
-	Updates bool
-	Details UpdateInfo
-}
-
-type UpdateReq struct {
-	Method string `json:"method"`
-	Bename string `json:"bename"`
-	Fullupdate bool `json:"fullupdate"`
-	Updatefile string `json:"updatefile"`
-	Updatekey string `json:"updatekey"`
-}
-
-type InfoMsg struct {
-	Info string
-}
-
 func rotatelog() {
 	if _, err := os.Stat(logfile) ; os.IsNotExist(err) {
 		return
@@ -304,6 +262,7 @@ func main() {
 
 	if len(os.Args) == 1 {
 		flag.Usage()
+		os.Exit(1)
 	}
 
 	// Capture any sigint
@@ -313,6 +272,9 @@ func main() {
 		<-interrupt
 		os.Exit(1)
 	}()
+
+	// Load the local config file if it exists
+	loadconfig()
 
 	if ( checkflag ) {
 		go startws()
