@@ -93,7 +93,7 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	// Search if a kernel is apart of this update
 	kernel := getkernelpkgname()
 	for i, _ := range details.Up {
-	if ( details.Up[i].Name == kernel) {
+		if ( details.Up[i].Name == kernel) {
 			// Set JSON details on the kernel update
 			details.KernelUp = true
                         details.KernelPkg = kernel
@@ -171,7 +171,5 @@ func checkforupdates() {
                 destroymddev()
         }
 
-	if ( haveupdates ) {
-		sendupdatedetails(haveupdates, updetails)
-	}
+	sendupdatedetails(haveupdates, updetails)
 }

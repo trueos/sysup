@@ -97,13 +97,13 @@ func destroymddev() {
 
 func mkreposfile(prefix string, pkgdb string) string {
 	reposdir := "REPOS_DIR: [ \"" + pkgdb + "/repos\", ]"
-	rerr := os.MkdirAll(pkgdb + "/repos", 0755)
+	rerr := os.MkdirAll(prefix + pkgdb + "/repos", 0755)
 	if rerr != nil {
 		log.Fatal(rerr)
 	}
 	// Ugly I know, can probably be re-factored later
 	pkgdata := `Update: {
-  url: ` + localimgmnt
+url: file:///` + localimgmnt
 	if ( updatekeyflag != "" ) {
 		pkgdata += `
   signature_type: "pubkey"
@@ -117,7 +117,7 @@ func mkreposfile(prefix string, pkgdb string) string {
 	pkgdata += `
   enabled: yes
 }`
-	ioutil.WriteFile("file://" + prefix + pkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
+	ioutil.WriteFile(prefix + pkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
 	return reposdir
 }
 
@@ -174,7 +174,7 @@ func updatepkgdb() {
 	}
 	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		exitcleanup(err, "Failed running pkg update -f")
+		exitcleanup(err, "Failed running pkg update:" + strings.Join(allText, "\n"))
 	}
 }
 
