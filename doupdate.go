@@ -96,18 +96,12 @@ func doupdate(message []byte) {
 	}
 
 	// Search if a kernel is apart of this update
-	kernel := getkernelpkgname()
-	var kernelupdate = false
-        for i, _ := range details.Up {
-		if ( details.Up[i].Name == kernel) {
-			kernelupdate = true
-			kernelpkg = kernel
-			break
-		}
-        }
+	if ( details.KernelUp ) {
+		kernelpkg = details.KernelPkg
+	}
 
-	// Start the upgrade
-	startupgrade(kernelupdate)
+	// Start the upgrade with bool passed if doing kernel update
+	startupgrade(details.KernelUp)
 
 	//os.Exit(0)
 }

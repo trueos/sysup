@@ -89,6 +89,18 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 		default:
 		}
 	}
+
+	// Search if a kernel is apart of this update
+	kernel := getkernelpkgname()
+	for i, _ := range details.Up {
+	if ( details.Up[i].Name == kernel) {
+			// Set JSON details on the kernel update
+			details.KernelUp = true
+                        details.KernelPkg = kernel
+                        break
+		}
+	}
+
 	//log.Print("UpdateInfo", details)
 	return &details
 }

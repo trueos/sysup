@@ -57,5 +57,7 @@ type UpdateInfo struct {
 	New []NewPkg `json:"new"`
 	Up []UpPkg `json:"update"`
 	Del []DelPkg `json:"delete"`
+	KernelUp bool `json:"kernelup"`
+	KernelPkg string `json:"kernelpkg"`
 }
 //----------------------------------------------------
