@@ -39,6 +39,8 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			checkforupdates()
 		case "update":
 			doupdate(message)
+		case "listtrains":
+			dotrainlist()
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}

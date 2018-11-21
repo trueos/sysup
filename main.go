@@ -67,6 +67,27 @@ func printupdatedetails(details UpdateInfo) {
 	}
 }
 
+// Show us our list of trains
+func printtrains(trains []TrainDef) {
+	fmt.Println("The following trains are available: (* current)")
+	fmt.Println("----------------------------------------------------")
+	for i, _ := range trains {
+		if ( trains[i].Current ) {
+			fmt.Printf("* ")
+		} else {
+			fmt.Printf(" ")
+		}
+		fmt.Printf("  %s\t\t%s", trains[i].Name, trains[i].Description)
+		if ( trains[i].Deprecated ) {
+			fmt.Printf(" [Deprecated]")
+		}
+		for j, _ := range trains[i].Tags {
+			fmt.Printf(" [%s]", trains[i].Tags[j])
+		}
+		fmt.Printf("\n")
+	}
+}
+
 func parsejsonmsg(message []byte) int {
 	if ( ! json.Valid(message) ) {
 		log.Println("ERROR: Invalid JSON in return")
@@ -105,6 +126,16 @@ func parsejsonmsg(message []byte) int {
 		}
 		var infomsg string = s.Info
 		fmt.Println(infomsg)
+	case "listtrains":
+		var s struct {
+			Envelope
+			Trains []TrainDef `json:"trains"`
+		}
+		if err := json.Unmarshal(message, &s); err != nil {
+			log.Fatal(err)
+		}
+		printtrains(s.Trains)
+		os.Exit(0)
 	case "shutdown":
 		var s struct {
 			Envelope
@@ -214,6 +245,37 @@ func closews() {
 	}
 }
 
+func listtrains() {
+        data := &UpdateReq{
+                Method:	"listtrains",
+        }
+
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	//fmt.Println("JSON Message: ", string(msg))
+	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	if send_err != nil {
+		log.Fatal("Failed talking to WS backend:", send_err)
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+
+	// Wait for messages back
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		// Do things with the message back
+		parsejsonmsg(message)
+	}
+}
+
 func startupdate() {
         data := &UpdateReq{
                 Method:	"update",
@@ -276,6 +338,22 @@ func main() {
 	// Load the local config file if it exists
 	loadconfig()
 
+	if ( listtrainflag ) {
+		go startws()
+		connectws()
+		listtrains()
+		closews()
+		os.Exit(0)
+	}
+
+	if ( changetrainflag != "" ) {
+		go startws()
+		connectws()
+		listtrains()
+		closews()
+		os.Exit(0)
+	}
+
 	if ( checkflag ) {
 		go startws()
 		connectws()
@@ -283,6 +361,7 @@ func main() {
 		closews()
 		os.Exit(0)
 	}
+
 	if ( updateflag ) {
 		go startws()
 		connectws()
@@ -290,10 +369,12 @@ func main() {
 		closews()
 		os.Exit(0)
 	}
+
 	if ( stage2flag ) {
 		startstage2()
 		os.Exit(0)
 	}
+
 	if ( websocketflag ) {
 		startws()
 		os.Exit(0)

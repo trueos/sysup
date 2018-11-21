@@ -19,6 +19,7 @@ func loadconfig() bool {
 		log.Fatal("Failed reading configuration file: " + configjson )
 	}
 
+	// Set some defaults for values that may not be in the config file
 	s := ConfigFile{
 		Bootstrap: false,
 		BootstrapFatal: false,
@@ -26,6 +27,8 @@ func loadconfig() bool {
 	if err := json.Unmarshal(dat, &s); err != nil {
 		log.Fatal(err)
 	}
+
+	// Set our gloabls now
 	bootstrap = s.Bootstrap
 	bootstrapfatal = s.BootstrapFatal
 	updatekeyflag = s.OfflineUpdateKey

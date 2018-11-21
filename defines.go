@@ -53,8 +53,10 @@ var STAGEDIR = "/.updatestage"
 // Setup our CLI Flags
 //----------------------------------------------------
 var benameflag string
+var changetrainflag string
 var checkflag bool
 var fullupdateflag bool
+var listtrainflag bool
 var stage2flag bool
 var updateflag bool
 var updatefileflag string
@@ -63,6 +65,8 @@ var websocketflag bool
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
 	flag.BoolVar(&updateflag, "update", false, "Update to latest packages")
+	flag.BoolVar(&listtrainflag, "list-trains", false, "List available trains (if configured)")
+	flag.StringVar(&changetrainflag, "change-train", "", "Change to the specifed new train")
 	flag.BoolVar(&fullupdateflag, "fullupdate", false, "Force a full update")
 	flag.BoolVar(&stage2flag, "stage2", false, "Start stage2 of an update (Normally used internally only)")
 	flag.StringVar(&updatefileflag, "updatefile", "", "Use the specified update image instead of fetching from remote")
@@ -90,15 +94,6 @@ type DelPkg struct {
 	Version string `json:"Version"`
 }
 
-// JSON structure we return to WS listeners
-type UpdateInfo struct {
-	New []NewPkg `json:"new"`
-	Up []UpPkg `json:"update"`
-	Del []DelPkg `json:"delete"`
-	KernelUp bool `json:"kernelup"`
-	KernelPkg string `json:"kernelpkg"`
-}
-
 // Local configuration file
 type ConfigFile struct {
 	Bootstrap bool `json:"bootstrap"`
@@ -107,42 +102,63 @@ type ConfigFile struct {
 	TrainsURL string `json:"trainsurl"`
 }
 
+
+type Envelope struct {
+	Method string
+}
+
+// Outgoing JSON API Responses
+//----------------------------------------------------
+
+// Return API of check request
+type Check struct {
+	Updates bool
+	Details UpdateInfo
+}
+
+// Return informational message
+type InfoMsg struct {
+	Info string
+}
+
 // Train Def
 type TrainDef struct {
 	Description string `json:"description"`
 	Deprecated bool `json:"deprecated"`
 	Name string `json:"name"`
 	NewTrain string `json:"newtrain"`
-	PkgURL bool `json:"pkgurl"`
+	PkgURL string `json:"pkgurl"`
 	PkgKey []string `json:"pkgkey"`
-	Tags string `json:"tags"`
+	Tags []string `json:"tags"`
 	Version int `json:"version"`
+	Current bool `json:"current"`
 }
 
 // Trains Top Level
 type TrainsDef struct {
-	Train []TrainDef `json:"Train"`
+	Trains []TrainDef `json:"trains"`
 }
 
-type Envelope struct {
-	Method string
+// Update information we return to API requests
+type UpdateInfo struct {
+	New []NewPkg `json:"new"`
+	Up []UpPkg `json:"update"`
+	Del []DelPkg `json:"delete"`
+	KernelUp bool `json:"kernelup"`
+	KernelPkg string `json:"kernelpkg"`
 }
 
-type Check struct {
-	Updates bool
-	Details UpdateInfo
-}
 
+// Incoming JSON API Requests
+//----------------------------------------------------
+
+// Generic API request to handle check/update/list-trains via the Method property
 type UpdateReq struct {
 	Method string `json:"method"`
 	Bename string `json:"bename"`
 	Fullupdate bool `json:"fullupdate"`
 	Updatefile string `json:"updatefile"`
 	Updatekey string `json:"updatekey"`
-}
-
-type InfoMsg struct {
-	Info string
 }
 
 //----------------------------------------------------
