@@ -133,7 +133,6 @@ func preparepkgconfig() {
 
 	// If we have an offline file update, lets set that up now
 	var reposdir string
-	log.Println("before updatefileflag: " + updatefileflag)
 	if ( updatefileflag != "" ) {
 		mountofflineupdate()
 		reposdir = mkreposfile("", localpkgdb)
