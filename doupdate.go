@@ -64,7 +64,7 @@ func doupdate(message []byte) {
 	updatefileflag = s.Updatefile
 	updatekeyflag = s.Updatekey
 	//log.Println("benameflag: " + benameflag)
-	log.Println("updatefile: " + updatefileflag)
+	//log.Println("updatefile: " + updatefileflag)
 
 	// Start a fresh log file
 	rotatelog()
@@ -89,6 +89,12 @@ func doupdate(message []byte) {
 	logtofile("Checking OS version")
 	checkosver()
 
+	// If we have been triggerd to run a full update
+	var twostageupdate = false
+	if ( fullupdateflag ) {
+		twostageupdate = true
+	}
+
 	// Start downloading our files if we aren't doing stand-alone upgrade
 	if ( updatefileflag == "" ) {
 		logtofile("Fetching file updates")
@@ -97,11 +103,12 @@ func doupdate(message []byte) {
 
 	// Search if a kernel is apart of this update
 	if ( details.KernelUp ) {
-		kernelpkg = details.KernelPkg
+		twostageupdate = true
 	}
+	kernelpkg = details.KernelPkg
 
 	// Start the upgrade with bool passed if doing kernel update
-	startupgrade(details.KernelUp)
+	startupgrade(twostageupdate)
 
 	//os.Exit(0)
 }
@@ -300,7 +307,7 @@ export PATH
 
 }
 
-func startupgrade(kernelupdate bool) {
+func startupgrade(twostage bool) {
 
 	cleanupbe()
 
@@ -317,7 +324,7 @@ func startupgrade(kernelupdate bool) {
 	}
 
 
-	if ( kernelupdate || fullupdateflag) {
+	if ( twostage ) {
 		updatekernel()
 		updatercscript()
 	} else {
@@ -557,7 +564,7 @@ func checkosver() {
 
 	OSVER := fmt.Sprint(OSINT)
 	if ( OSVER != REMOTEVER ) {
-		sendinfomsg("Remote ABI change detected. Doing full update.")
+		sendinfomsg("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )
 		fullupdateflag = true
 	}
 }
