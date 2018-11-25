@@ -33,6 +33,9 @@ var trainsurl string
 var bootstrap = false
 var bootstrapfatal = false
 
+// Default pubkey used for trains
+var trainpubkey = "/usr/local/share/" + toolname + "/trains.pub"
+
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
