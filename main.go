@@ -65,7 +65,11 @@ func connectws() {
 			connected = true
 			break
 		}
-		time.Sleep(5 * time.Millisecond);
+		time.Sleep(100 * time.Millisecond);
+		// If we fail first connect, lets fire up the internal server
+		if ( attempt == 1 ) {
+			go startws()
+		}
 	}
 	if (!connected) {
 		log.Fatal("Failed connecting to websocket server", err)
@@ -84,6 +88,7 @@ func closews() {
 		log.Println("write close:", err)
 		return
 	}
+	time.Sleep(100 * time.Millisecond);
 }
 
 func checkuid() {
@@ -115,7 +120,6 @@ func main() {
 	loadconfig()
 
 	if ( listtrainflag ) {
-		go startws()
 		connectws()
 		listtrains()
 		closews()
@@ -123,7 +127,6 @@ func main() {
 	}
 
 	if ( changetrainflag != "" ) {
-		go startws()
 		connectws()
 		settrain()
 		closews()
@@ -131,7 +134,6 @@ func main() {
 	}
 
 	if ( checkflag ) {
-		go startws()
 		connectws()
 		startcheck()
 		closews()
@@ -139,7 +141,6 @@ func main() {
 	}
 
 	if ( updateflag ) {
-		go startws()
 		connectws()
 		startupdate()
 		closews()

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"log"
 	"os/exec"
 	"strings"
@@ -106,17 +107,20 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	return &details
 }
 
-func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
+func updatedryrun(sendupdate bool) (*UpdateInfo, bool, error) {
+	details := UpdateInfo{ }
+	updetails := &details
+
 	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-n")
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Println("Failed dry run")
-		log.Fatal(err)
+		sendfatalmsg("Failed dry run of pkg upgrade")
+		return updetails, false, errors.New("ERROR")
 	}
 	if err := cmd.Start(); err != nil {
-		log.Println("Failed starting dry run")
-		log.Fatal(err)
+		sendfatalmsg("Failed dry run of pkg upgrade")
+		return updetails, false, errors.New("ERROR")
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -132,13 +136,11 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool) {
 	//}
 
 	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
-	details := UpdateInfo{ }
-	updetails := &details
 	if ( haveupdates ) {
 		updetails = parseupdatedata(allText)
 	}
 
-	return updetails, haveupdates
+	return updetails, haveupdates, nil
 }
 
 func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
@@ -165,12 +167,14 @@ func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 func checkforupdates() {
 	preparepkgconfig()
 	updatepkgdb()
-	updetails, haveupdates := updatedryrun(true)
+	updetails, haveupdates, uerr:= updatedryrun(true)
+	if ( uerr != nil ) {
+                destroymddev()
+		return
+	}
 
         // If we are using standalone update, cleanup
-        if ( updatefileflag != "" ) {
-                destroymddev()
-        }
+	destroymddev()
 
 	sendupdatedetails(haveupdates, updetails)
 }

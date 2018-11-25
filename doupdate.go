@@ -79,7 +79,10 @@ func doupdate(message []byte) {
 
 	// Check that updates are available
 	logtofile("Checking for updates")
-	details, haveupdates := updatedryrun(false)
+	details, haveupdates, uerr := updatedryrun(false)
+	if ( uerr != nil ) {
+		return
+	}
 	if ( ! haveupdates ) {
 		sendfatalmsg("ERROR: No updates to install!")
 		return
@@ -110,7 +113,6 @@ func doupdate(message []byte) {
 	// Start the upgrade with bool passed if doing kernel update
 	startupgrade(twostageupdate)
 
-	//os.Exit(0)
 }
 
 func cleanupbe() {
@@ -337,7 +339,7 @@ func startupgrade(twostage bool) {
 		cmd := exec.Command("umount", "-f", STAGEDIR + localimgmnt)
 		err := cmd.Run()
 		if ( err != nil ) {
-			log.Fatal(err)
+			log.Println("WARNING: Failed to umount " + STAGEDIR + localimgmnt)
 		}
 	}
 
@@ -350,9 +352,7 @@ func startupgrade(twostage bool) {
 
 	// If we are using standalone update, cleanup
 	destroymddev()
-	sendinfomsg("Success! Reboot your system to continue the update process.")
-	time.Sleep(500 * time.Millisecond)
-	os.Exit(0)
+	sendshutdownmsg("Success! Reboot your system to continue the update process.")
 }
 
 func renamebe() {

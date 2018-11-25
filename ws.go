@@ -31,7 +31,9 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		// Start decoding the incoming JSON
 	        var env Envelope
 		if err := json.Unmarshal(message, &env); err != nil {
-			log.Fatal(err)
+			sendinfomsg("Invalid JSON received")
+			log.Println("Warning: Invalid JSON message received")
+			log.Println(err)
 	        }
 	        switch env.Method {
 	        case "check":
