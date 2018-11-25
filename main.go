@@ -125,7 +125,7 @@ func main() {
 	if ( changetrainflag != "" ) {
 		go startws()
 		connectws()
-		listtrains()
+		settrain()
 		closews()
 		os.Exit(0)
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/websocket"
 )
@@ -41,6 +40,8 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			doupdate(message)
 		case "listtrains":
 			dotrainlist()
+		case "settrain":
+			dosettrain(message)
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}
@@ -109,5 +110,4 @@ func sendfatalmsg(info string) {
 	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Fatal(err)
 	}
-	os.Exit(1)
 }

@@ -53,7 +53,7 @@ func doupdate(message []byte) {
 	// Unpack the options for this update request
 	var s struct {
 		Envelope
-		UpdateReq
+		SendReq
 	}
 	if err := json.Unmarshal(message, &s); err != nil {
 		log.Fatal(err)

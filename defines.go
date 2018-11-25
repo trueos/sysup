@@ -155,11 +155,12 @@ type UpdateInfo struct {
 // Incoming JSON API Requests
 //----------------------------------------------------
 
-// Generic API request to handle check/update/list-trains via the Method property
-type UpdateReq struct {
+// Generic API request to handle check/update/list-trains/set-train via the Method property
+type SendReq struct {
 	Method string `json:"method"`
 	Bename string `json:"bename"`
 	Fullupdate bool `json:"fullupdate"`
+	Train string `json:"train"`
 	Updatefile string `json:"updatefile"`
 	Updatekey string `json:"updatekey"`
 }

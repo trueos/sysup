@@ -13,14 +13,14 @@ import (
 // Show us our list of trains
 func printtrains(trains []TrainDef) {
 	fmt.Println("The following trains are available: (* current)")
-	fmt.Println("----------------------------------------------------")
+	fmt.Println("------------------------------------------------------------------")
 	for i, _ := range trains {
 		if ( trains[i].Current ) {
 			fmt.Printf("* ")
 		} else {
 			fmt.Printf(" ")
 		}
-		fmt.Printf("  %s\t\t%s", trains[i].Name, trains[i].Description)
+		fmt.Printf("  %s\t\t\t%s", trains[i].Name, trains[i].Description)
 		if ( trains[i].Deprecated ) {
 			fmt.Printf(" [Deprecated]")
 		}
@@ -79,6 +79,16 @@ func parsejsonmsg(message []byte) int {
 		}
 		printtrains(s.Trains)
 		os.Exit(0)
+	case "settrain":
+		var s struct {
+			Envelope
+			Train string `json:"train"`
+		}
+		if err := json.Unmarshal(message, &s); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Train set to: " + s.Train)
+		os.Exit(0)
 	case "shutdown":
 		var s struct {
 			Envelope
@@ -99,7 +109,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		fmt.Println(infomsg)
+		log.Println("ERROR: " + infomsg)
 		os.Exit(150)
 
 	default:
@@ -139,7 +149,7 @@ func startcheck() {
 }
 
 func listtrains() {
-        data := &UpdateReq{
+        data := &SendReq{
                 Method:	"listtrains",
         }
 
@@ -168,6 +178,39 @@ func listtrains() {
 		parsejsonmsg(message)
 	}
 }
+
+func settrain() {
+        data := &SendReq{
+                Method:	"settrain",
+                Train:	changetrainflag,
+        }
+
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	//fmt.Println("JSON Message: ", string(msg))
+	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	if send_err != nil {
+		log.Fatal("Failed talking to WS backend:", send_err)
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+
+	// Wait for messages back
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		// Do things with the message back
+		parsejsonmsg(message)
+	}
+}
+
 
 func printupdatedetails(details UpdateInfo) {
 
@@ -199,7 +242,7 @@ func printupdatedetails(details UpdateInfo) {
 }
 
 func startupdate() {
-        data := &UpdateReq{
+        data := &SendReq{
                 Method:	"update",
                 Fullupdate: fullupdateflag,
                 Bename:   benameflag,
