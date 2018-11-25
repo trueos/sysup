@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha512"
@@ -29,7 +30,7 @@ func loadtrains() (TrainsDef, error) {
 		return s, errors.New("ERROR")
 	}
 
-	sendinfomsg("Fetching trains configuration")
+	//sendinfomsg("Fetching trains configuration")
 	resp, err := http.Get(trainsurl)
 	if err != nil {
 		sendfatalmsg("ERROR: Failed fetching " + trainsurl)
@@ -47,7 +48,7 @@ func loadtrains() (TrainsDef, error) {
 	}
 
 	// Now fetch the sig
-	sendinfomsg("Fetching trains signature")
+	//sendinfomsg("Fetching trains signature")
 	sresp, serr := http.Get(trainsurl + ".sha1")
 	if serr != nil {
 		sendfatalmsg("ERROR: Failed fetching " + trainsurl + ".sha1")
@@ -97,6 +98,13 @@ func loadtrains() (TrainsDef, error) {
 		sendfatalmsg("Failed JSON parsing of train file!")
 		return s, errors.New("ERROR")
 	}
+
+	// Get the default train
+	deftrain, terr := getdefaulttrain()
+	if ( terr == nil ) {
+		s.Default = deftrain
+	}
+
 	return s, nil
 }
 
@@ -112,11 +120,13 @@ func sendtraindetails(trains TrainsDef) {
         type JSONReply struct {
                 Method string `json:"method"`
                 Trains  []TrainDef `json:"trains"`
+		Default string `json:"default"`
         }
 
         data := &JSONReply{
                 Method:     "listtrains",
                 Trains:   trains.Trains,
+                Default:   trains.Default,
         }
         msg, err := json.Marshal(data)
         if err != nil {
@@ -125,6 +135,30 @@ func sendtraindetails(trains TrainsDef) {
         if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
                 log.Fatal(err)
         }
+}
+
+func getdefaulttrain() (string, error) {
+	var deftrain string
+	fileHandle, err := os.Open("/etc/pkg/Train.conf")
+	if ( err != nil ) {
+		return deftrain, err
+	}
+	defer fileHandle.Close()
+	fileScanner := bufio.NewScanner(fileHandle)
+
+	for fileScanner.Scan() {
+		line := fileScanner.Text()
+                if ( strings.Contains(line, "# TRAINNAME ")) {
+			linearray := strings.Split(line, " ")
+			if ( len(linearray) < 2) {
+				continue
+			}
+			deftrain = strings.TrimSpace(linearray[2])
+			break
+		}
+	}
+
+	return deftrain, nil
 }
 
 // Load the default trains pub key we use to verify JSON validity
@@ -146,7 +180,7 @@ func loadtrainspub() ([]byte, error) {
 
 func createnewpkgconf( train TrainDef ) {
 	// Nuke existing pkg configs
-	cmd := exec.Command("rm", "-f", "/etc/pkg/*.conf")
+	cmd := exec.Command("/bin/sh", "-c", "rm -f /etc/pkg/*.conf")
         cmd.Run()
 
 	// Write the new key file
@@ -158,7 +192,9 @@ func createnewpkgconf( train TrainDef ) {
 
 
 	// Write the new conf file
-        fdata := `Train: {
+	fdata := `# TRAINNAME ` + train.Name + `
+
+Train: {
   url: "` + train.PkgURL + `",
   signature_type: "pubkey",
   pubkey: "/usr/share/keys/train-pkg.key",

@@ -11,16 +11,13 @@ import (
 
 
 // Show us our list of trains
-func printtrains(trains []TrainDef) {
-	fmt.Println("The following trains are available: (* current)")
+func printtrains(trains []TrainDef, deftrain string) {
+	fmt.Println("Current Train: " + deftrain)
+	fmt.Println("")
+	fmt.Println("The following trains are available:")
 	fmt.Println("------------------------------------------------------------------")
 	for i, _ := range trains {
-		if ( trains[i].Current ) {
-			fmt.Printf("* ")
-		} else {
-			fmt.Printf(" ")
-		}
-		fmt.Printf("  %s\t\t\t%s", trains[i].Name, trains[i].Description)
+		fmt.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
 		if ( trains[i].Deprecated ) {
 			fmt.Printf(" [Deprecated]")
 		}
@@ -73,11 +70,12 @@ func parsejsonmsg(message []byte) int {
 		var s struct {
 			Envelope
 			Trains []TrainDef `json:"trains"`
+			Default string `json:"default"`
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
 		}
-		printtrains(s.Trains)
+		printtrains(s.Trains, s.Default)
 		os.Exit(0)
 	case "settrain":
 		var s struct {

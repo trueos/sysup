@@ -140,6 +140,7 @@ type TrainDef struct {
 // Trains Top Level
 type TrainsDef struct {
 	Trains []TrainDef `json:"trains"`
+	Default string `json:"default"`
 }
 
 // Update information we return to API requests
