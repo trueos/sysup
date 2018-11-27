@@ -19,7 +19,7 @@ Only **one** of these arguments may be used at a time.
    - List all the pkg "trains" that the system is aware of (defined in "/usr/local/etc/sysup.json")
 - **-change-train TRAIN_NAME**
    - Reconfigure the package repository files to point to the designated TRAIN_NAME.
-   - ***WARNING*** This will remove *all* package repository configuration files on the system and create a single "/etc/pkg/train.conf" file containing the configuration for the desired package train.
+   - ***WARNING*** This will remove *all* package repository configuration files on the system and create a single "/etc/pkg/Train.conf" file containing the configuration for the desired package train.
 
 ## Daemonizing the updater
 - **-websocket**
@@ -53,7 +53,7 @@ These arguments are add-ons for the "-update" argument and are typically not nee
    - Force a "full" update of all packages (including kernel/world).
    - Default Value: This is automatically determined based on whether the base packages (kernel/world) are tagged as newer on the package repository.
 - **-stage2**
-   - Start stage2 of an update (installing non-base packages)
+   - Start stage2 of an update (installing non-kernel package updates)
    - **WARNING** This is a debugging option that is only used internally. This should *not* be run manually by the user.
    
 # TRAINS
@@ -92,7 +92,7 @@ This is the file publicly provided by some package repository manager or distrib
     {
       "name" : "TRAIN_NAME",
       "description" : "TRAIN_DESCRIPTION",
-      "depricated" : false,
+      "deprecated" : false,
       "newtrain" : "MOVE_TO_TRAIN_NAME",
       "pkgurl" : "http://my.pkg-repo.com/pkg/${ABI}/latest",
       "pkgkey" : [
@@ -114,7 +114,7 @@ This is the file publicly provided by some package repository manager or distrib
 ### Train Object Details
 - "name" (string) : Name of the update train
 - "description" (string) : Description of what the train provides for the end-user.
-- "depricated" (boolian) : Mark whether a repository is active or deactivated.
+- "deprecated" (boolian) : Mark whether a repository is active or deactivated.
 - "newtrain" (string) : If depricated, automatically migrate the client to this train instead.
 - "pkgurl" (string) : URL for where to find the package repository
 - "pkgkey" (array of strings) : Contents of the public key file used to verify packages from this repository (one line per element in the array).
