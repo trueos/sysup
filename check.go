@@ -103,6 +103,12 @@ func parseupdatedata(uptext []string) *UpdateInfo {
                         break
 		}
 	}
+
+	// If we have a remote ABI change we count that as a new kernel change also
+        if ( haveosverchange() ) {
+		details.KernelUp = true
+	}
+
 	//log.Print("UpdateInfo", details)
 	return &details
 }

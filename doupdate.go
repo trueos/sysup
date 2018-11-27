@@ -90,7 +90,9 @@ func doupdate(message []byte) {
 
 	// Check host OS version
 	logtofile("Checking OS version")
-	checkosver()
+	if ( haveosverchange() ) {
+		fullupdateflag = true
+	}
 
 	// If we have been triggerd to run a full update
 	var twostageupdate = false
@@ -551,7 +553,7 @@ func startfetch() error {
         return nil
 }
 
-func checkosver() {
+func haveosverchange() bool {
 	// Check the host OS version
 	OSINT, oerr := syscall.SysctlUint32("kern.osreldate")
 	if ( oerr != nil ) {
@@ -565,8 +567,10 @@ func checkosver() {
 	OSVER := fmt.Sprint(OSINT)
 	if ( OSVER != REMOTEVER ) {
 		sendinfomsg("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )
-		fullupdateflag = true
+		logtofile("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )
+		return true
 	}
+	return false
 }
 
 func updateloader() {
