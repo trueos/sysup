@@ -57,7 +57,7 @@ These arguments are add-ons for the "-update" argument and are typically not nee
    - **WARNING** This is a debugging option that is only used internally. This should *not* be run manually by the user.
    
 # TRAINS
-susup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
+sysup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
 
 ## Local Train Configuration
 - Config File: "/usr/local/etc/sysup/trains.json"
