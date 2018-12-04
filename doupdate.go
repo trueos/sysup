@@ -647,7 +647,6 @@ func startfetch() error {
 		log.Fatal(err)
 	}
 	buff := bufio.NewScanner(stdout)
-	bufferr := bufio.NewScanner(stderr)
 
 	// Iterate over buff and append content to the slice
 	var allText []string
@@ -658,9 +657,10 @@ func startfetch() error {
 	}
         // If we get a non-0 back, report the full error
         if err := cmd.Wait(); err != nil {
-		for bufferr.Scan() {
-			line := bufferr.Text()
-			sendinfomsg(line)
+		errbuf, _:= ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			sendinfomsg(errarr[i])
 		}
 		sendfatalmsg("Failed package fetch!")
 		return err
