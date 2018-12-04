@@ -104,6 +104,17 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 		}
 	}
 
+	// Check if we have a SysUp package to update
+	details.SysUpPkg = ""
+	details.SysUp = false
+	for i, _ := range details.Up {
+		if ( details.Up[i].Name == "sysup") {
+			// Set JSON details on the sysup package
+			details.SysUp = true
+                        break
+		}
+	}
+
 	// If we have a remote ABI change we count that as a new kernel change also
         if ( haveosverchange() ) {
 		details.KernelUp = true

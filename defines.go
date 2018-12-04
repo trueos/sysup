@@ -150,6 +150,8 @@ type UpdateInfo struct {
 	Del []DelPkg `json:"delete"`
 	KernelUp bool `json:"kernelup"`
 	KernelPkg string `json:"kernelpkg"`
+	SysUp bool `json:"sysup"`
+	SysUpPkg string `json:"sysuppkg"`
 }
 
 

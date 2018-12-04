@@ -106,6 +106,14 @@ func doupdate(message []byte) {
 		startfetch()
 	}
 
+	// If we have a sysup package we intercept here, do boot-strap and
+	// Then restart the update with the fresh binary on a new port
+	if ( details.SysUp) {
+		dosysupbootstrap()
+		dopassthroughupdate()
+		return
+	}
+
 	// Search if a kernel is apart of this update
 	if ( details.KernelUp ) {
 		twostageupdate = true
@@ -115,6 +123,119 @@ func doupdate(message []byte) {
 	// Start the upgrade with bool passed if doing kernel update
 	startupgrade(twostageupdate)
 
+}
+
+// This is called after a sysup boot-strap has taken place
+//
+// We will restart the sysup daemon on a new port and continue
+// with the same update as previously requested
+func dopassthroughupdate() {
+	var fuflag string
+	if ( fullupdateflag ) {
+		fuflag="-fullupdate"
+
+	}
+	var upflag string
+	if ( updatefileflag != "" ) {
+		upflag="-updatefile=" + updatefileflag
+	}
+	var beflag string
+	if ( benameflag != "" ) {
+		beflag="-bename=" + benameflag
+	}
+	var ukeyflag string
+	if ( updatekeyflag != "" ) {
+		ukeyflag="-updatekey=" + updatekeyflag
+	}
+	var wsflag string
+	wsflag = "-addr=127.0.0.1:8135"
+
+	// Start the newly updated sysup binary, passing along our previous flags
+	cmd := exec.Command("sysup", wsflag, "-update", fuflag, upflag, beflag, ukeyflag)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and report back to listeners
+	for buff.Scan() {
+		sendinfomsg(buff.Text())
+	}
+        // Sysup returns 0 on sucess
+        if err := cmd.Wait(); err != nil {
+		sendfatalmsg("Failed update!")
+        }
+}
+
+func doupdatefileumnt() {
+	if ( updatefileflag == "" ) {
+		return
+	}
+
+	logtofile("Unmount nullfs")
+	cmd := exec.Command("umount", "-f", STAGEDIR + localimgmnt)
+	err := cmd.Run()
+	if ( err != nil ) {
+		log.Println("WARNING: Failed to umount " + STAGEDIR + localimgmnt)
+	}
+}
+
+func doupdatefilemnt() {
+	// If we are using standalone update need to nullfs mount the pkgs
+	if ( updatefileflag == "" ) {
+		return
+	}
+
+	logtofile("Mounting nullfs")
+	cmd := exec.Command("mount_nullfs", localimgmnt, STAGEDIR + localimgmnt)
+	err := cmd.Run()
+	if ( err != nil ) {
+		log.Fatal(err)
+	}
+}
+
+// When we have a new version of sysup to upgrade to, we perform
+// that update first, and then continue with the regular update
+func dosysupbootstrap() {
+
+	doupdatefilemnt()
+
+	// Start by updating the sysup PKG
+	sendinfomsg("Starting Sysup boot-strap")
+	logtofile("SysUp Stage 1\n-----------------------")
+
+	// We update sysup command directly on the host
+	// Why you may ask? Its written in GO for a reason
+	// This allows us to run the new GO binaries on the system without worrying
+	// about pesky library or ABI issues, horray!
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "sysup")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and append content to the slice
+	for buff.Scan() {
+		line := buff.Text()
+		sendinfomsg(line)
+		logtofile(line)
+	}
+        // Pkg returns 0 on sucess
+        if err := cmd.Wait(); err != nil {
+		sendfatalmsg("Failed sysup update!")
+        }
+	sendinfomsg("Finished stage 1 Sysup boot-strap")
+	logtofile("FinishedSysUp Stage 1\n-----------------------")
+
+	doupdatefileumnt()
 }
 
 func cleanupbe() {
@@ -318,15 +439,7 @@ func startupgrade(twostage bool) {
 	createnewbe()
 
 	// If we are using standalone update need to nullfs mount the pkgs
-	if ( updatefileflag != "" ) {
-		logtofile("Mounting nullfs")
-		cmd := exec.Command("mount_nullfs", localimgmnt, STAGEDIR + localimgmnt)
-		err := cmd.Run()
-		if ( err != nil ) {
-			log.Fatal(err)
-		}
-	}
-
+	doupdatefilemnt()
 
 	if ( twostage ) {
 		updatekernel()
@@ -336,14 +449,7 @@ func startupgrade(twostage bool) {
 	}
 
 	// Cleanup nullfs mount
-	if ( updatefileflag != "" ) {
-		logtofile("Unmount nullfs")
-		cmd := exec.Command("umount", "-f", STAGEDIR + localimgmnt)
-		err := cmd.Run()
-		if ( err != nil ) {
-			log.Println("WARNING: Failed to umount " + STAGEDIR + localimgmnt)
-		}
-	}
+	doupdatefileumnt()
 
 	// Unmount the devfs point
 	cmd := exec.Command("umount", "-f", STAGEDIR + "/dev")
@@ -532,6 +638,11 @@ func startfetch() error {
 	if err != nil {
 		log.Fatal(err)
 	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
@@ -544,9 +655,15 @@ func startfetch() error {
 		sendinfomsg(line)
 		allText = append(allText, line+"\n")
 	}
-        // Pkg returns 0 on sucess and 1 on updates needed
+        // If we get a non-0 back, report the full error
         if err := cmd.Wait(); err != nil {
-              log.Fatal(err)
+		errbuf, _:= ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			sendinfomsg(errarr[i])
+		}
+		sendfatalmsg("Failed package fetch!")
+		return err
         }
 	sendinfomsg("Finished package downloads")
 
