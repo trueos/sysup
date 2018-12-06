@@ -58,6 +58,7 @@ var STAGEDIR = "/.updatestage"
 var benameflag string
 var changetrainflag string
 var checkflag bool
+var disablebsflag bool
 var fullupdateflag bool
 var listtrainflag bool
 var stage2flag bool
@@ -67,6 +68,7 @@ var updatekeyflag string
 var websocketflag bool
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
+	flag.BoolVar(&disablebsflag, "disablebootstrap", false, "Disable bootstrap of sysup package on upgrade")
 	flag.BoolVar(&updateflag, "update", false, "Update to latest packages")
 	flag.BoolVar(&listtrainflag, "list-trains", false, "List available trains (if configured)")
 	flag.StringVar(&changetrainflag, "change-train", "", "Change to the specifed new train")
@@ -162,6 +164,7 @@ type UpdateInfo struct {
 type SendReq struct {
 	Method string `json:"method"`
 	Bename string `json:"bename"`
+	Disablebs bool `json:"disablebs"`
 	Fullupdate bool `json:"fullupdate"`
 	Train string `json:"train"`
 	Updatefile string `json:"updatefile"`

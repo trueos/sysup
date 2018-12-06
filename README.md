@@ -44,6 +44,8 @@ sysup allows for the possibility of offline updates via an image file containing
    
 ### Additional Update Options
 These arguments are add-ons for the "-update" argument and are typically not needed for standard use
+- **-disablebootstrap**
+   - Skip the update of SysUp port. This is used for running locally built SysUp and testing.
 - **-bename NAME**
    - Use "NAME" for the new boot environment that will be created.
    - A boot environment with "NAME" must *not* already exist, otherwise sysup will return an error.
