@@ -92,7 +92,13 @@ func closews() {
 }
 
 func checkuid() {
-	user, _ := user.Current()
+	user, err := user.Current()
+	if ( err != nil ) {
+		fmt.Println(err)
+		fmt.Println("Failed getting user.Current()")
+		os.Exit(1)
+		return
+	}
 	if ( user.Uid != "0" ) {
 		fmt.Println("ERROR: Must be run as root")
 		os.Exit(1)
@@ -101,7 +107,12 @@ func checkuid() {
 
 func main() {
 
-	checkuid()
+	// Can skip if doing stage2 of update
+	// For some reason this fails on some systems when trying to get the current user
+	// possibly due to / not being writable?
+	if ( ! stage2flag ) {
+		checkuid()
+	}
 
 	if len(os.Args) == 1 {
 		flag.Usage()

@@ -61,6 +61,7 @@ func doupdate(message []byte) {
 
 	fullupdateflag = s.Fullupdate
 	benameflag = s.Bename
+	disablebsflag = s.Disablebs
 	updatefileflag = s.Updatefile
 	updatekeyflag = s.Updatekey
 	//log.Println("benameflag: " + benameflag)
@@ -108,7 +109,9 @@ func doupdate(message []byte) {
 
 	// If we have a sysup package we intercept here, do boot-strap and
 	// Then restart the update with the fresh binary on a new port
-	if ( details.SysUp) {
+	//
+	// Skip if the disablebsflag is set
+	if ( details.SysUp && disablebsflag != true) {
 		dosysupbootstrap()
 		dopassthroughupdate()
 		return

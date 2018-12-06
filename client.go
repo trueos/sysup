@@ -244,6 +244,7 @@ func startupdate() {
                 Method:	"update",
                 Fullupdate: fullupdateflag,
                 Bename:   benameflag,
+                Disablebs:   disablebsflag,
                 Updatefile:   updatefileflag,
         }
 
