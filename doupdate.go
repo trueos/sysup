@@ -112,6 +112,7 @@ func doupdate(message []byte) {
 	//
 	// Skip if the disablebsflag is set
 	if ( details.SysUp && disablebsflag != true) {
+		logtofile("Performing bootstrap")
 		dosysupbootstrap()
 		dopassthroughupdate()
 		return
@@ -154,7 +155,21 @@ func dopassthroughupdate() {
 	wsflag = "-addr=127.0.0.1:8135"
 
 	// Start the newly updated sysup binary, passing along our previous flags
-	cmd := exec.Command("sysup", wsflag, "-update", fuflag, upflag, beflag, ukeyflag)
+	//upflags := fuflag + " " + upflag + " " + beflag + " " + ukeyflag
+	cmd := exec.Command("sysup", wsflag, "-update")
+	if ( fuflag != "" ) {
+		cmd.Args = append(cmd.Args, fuflag)
+	}
+	if ( upflag != "" ) {
+		cmd.Args = append(cmd.Args, upflag)
+	}
+	if ( beflag != "" ) {
+		cmd.Args = append(cmd.Args, beflag)
+	}
+	if ( ukeyflag != "" ) {
+		cmd.Args = append(cmd.Args, ukeyflag)
+	}
+	logtofile("Running bootstrap with flags: " + strings.Join(cmd.Args, " "))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -172,18 +187,21 @@ func dopassthroughupdate() {
         if err := cmd.Wait(); err != nil {
 		sendfatalmsg("Failed update!")
         }
+
+	// Let our local clients know they can finish up
+	sendshutdownmsg("")
 }
 
-func doupdatefileumnt() {
+func doupdatefileumnt(prefix string) {
 	if ( updatefileflag == "" ) {
 		return
 	}
 
 	logtofile("Unmount nullfs")
-	cmd := exec.Command("umount", "-f", STAGEDIR + localimgmnt)
+	cmd := exec.Command("umount", "-f", prefix + localimgmnt)
 	err := cmd.Run()
 	if ( err != nil ) {
-		log.Println("WARNING: Failed to umount " + STAGEDIR + localimgmnt)
+		log.Println("WARNING: Failed to umount " + prefix + localimgmnt)
 	}
 }
 
@@ -199,13 +217,12 @@ func doupdatefilemnt() {
 	if ( err != nil ) {
 		log.Fatal(err)
 	}
+	logtofile("Nullfs mounted at: " + localimgmnt)
 }
 
 // When we have a new version of sysup to upgrade to, we perform
 // that update first, and then continue with the regular update
 func dosysupbootstrap() {
-
-	doupdatefilemnt()
 
 	// Start by updating the sysup PKG
 	sendinfomsg("Starting Sysup boot-strap")
@@ -235,10 +252,26 @@ func dosysupbootstrap() {
         if err := cmd.Wait(); err != nil {
 		sendfatalmsg("Failed sysup update!")
         }
+
+	cmd = exec.Command("rm", "-rf", "/var/db/pkg")
+	err = cmd.Run()
+	if ( err != nil ) {
+		log.Fatal(err)
+	}
+
+        // Copy over the existing local database
+        srcDir := localpkgdb
+        destDir := "/var/db/pkg"
+        cpCmd := exec.Command("mv", srcDir, destDir)
+        err = cpCmd.Run()
+        if ( err != nil ) {
+                log.Fatal(err)
+        }
+
 	sendinfomsg("Finished stage 1 Sysup boot-strap")
 	logtofile("FinishedSysUp Stage 1\n-----------------------")
 
-	doupdatefileumnt()
+	doupdatefileumnt("")
 }
 
 func cleanupbe() {
@@ -452,7 +485,7 @@ func startupgrade(twostage bool) {
 	}
 
 	// Cleanup nullfs mount
-	doupdatefileumnt()
+	doupdatefileumnt(STAGEDIR)
 
 	// Unmount the devfs point
 	cmd := exec.Command("umount", "-f", STAGEDIR + "/dev")
@@ -675,6 +708,7 @@ func startfetch() error {
 
 func haveosverchange() bool {
 	// Check the host OS version
+	logtofile("Checking OS version")
 	OSINT, oerr := syscall.SysctlUint32("kern.osreldate")
 	if ( oerr != nil ) {
 		log.Fatal(oerr)
@@ -685,6 +719,7 @@ func haveosverchange() bool {
 	}
 
 	OSVER := fmt.Sprint(OSINT)
+	logtofile("OS Version: " + OSVER + " -> " + REMOTEVER)
 	if ( OSVER != REMOTEVER ) {
 		sendinfomsg("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )
 		logtofile("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )

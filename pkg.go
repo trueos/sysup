@@ -49,11 +49,20 @@ func getremoteosver() (string, error) {
 }
 
 func mountofflineupdate() {
+
+	// If offline update is already mounted, return
+	if ( localmddev != "" ) {
+		logtofile("Using already mounted: " + updatefileflag)
+		return
+	}
+
 	if _, err := os.Stat(updatefileflag) ; os.IsNotExist(err) {
 		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " does not exist!")
 		closews()
 		os.Exit(1)
 	}
+
+	logtofile("Mounting offline update: " + updatefileflag)
 
 	output, cmderr := exec.Command("mdconfig", "-a", "-t", "vnode", "-f", updatefileflag).Output()
 	if ( cmderr != nil ) {
@@ -80,6 +89,7 @@ func mountofflineupdate() {
 		cmd := exec.Command("mdconfig", "-d", "-u", localmddev)
 		cmd.Run()
 		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " cannot be mounted")
+		localmddev=""
 		closews()
 		os.Exit(1)
 	}
@@ -93,6 +103,7 @@ func destroymddev() {
 	cmd.Run()
         cmd = exec.Command("mdconfig", "-d", "-u", localmddev)
 	cmd.Run()
+	localmddev=""
 }
 
 func mkreposfile(prefix string, pkgdb string) string {
