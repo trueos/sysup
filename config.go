@@ -31,8 +31,15 @@ func loadconfig() bool {
 	// Set our gloabls now
 	bootstrap = s.Bootstrap
 	bootstrapfatal = s.BootstrapFatal
-	updatekeyflag = s.OfflineUpdateKey
 	trainsurl = s.TrainsURL
+
+	// Don't update these if already set on the CLI
+	if ( updatekeyflag != "" ) {
+		updatekeyflag = s.OfflineUpdateKey
+	}
+	if ( cachedirflag != "" ) {
+		cachedirflag= s.Cachedir
+	}
 
 	return true
 }

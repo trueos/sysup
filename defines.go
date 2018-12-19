@@ -39,11 +39,12 @@ var trainpubkey = "/usr/local/share/" + toolname + "/trains.pub"
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
+
 var localsysupdb = "/var/db/" + toolname
 var localpkgdb = localsysupdb + "/pkgdb"
 var localimgmnt = localsysupdb + "/mnt"
 var localpkgconf = localsysupdb + "/pkg.conf"
-var localcachedir = "/var/cache/" + toolname
+var localcachedir = localsysupdb + "/cache"
 var localmddev = ""
 //----------------------------------------------------
 
@@ -106,6 +107,7 @@ type DelPkg struct {
 type ConfigFile struct {
 	Bootstrap bool `json:"bootstrap"`
 	BootstrapFatal bool `json:"bootstrapfatal"`
+	Cachedir string `json:"cachedir"`
 	OfflineUpdateKey string `json:"offlineupdatekey"`
 	TrainsURL string `json:"trainsurl"`
 }
@@ -169,6 +171,7 @@ type SendReq struct {
 	Bename string `json:"bename"`
 	Disablebs bool `json:"disablebs"`
 	Fullupdate bool `json:"fullupdate"`
+	Cachedir string `json:"cachedir"`
 	Train string `json:"train"`
 	Updatefile string `json:"updatefile"`
 	Updatekey string `json:"updatekey"`

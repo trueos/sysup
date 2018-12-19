@@ -60,6 +60,7 @@ func doupdate(message []byte) {
 	}
 
 	fullupdateflag = s.Fullupdate
+	cachedirflag = s.Cachedir
 	benameflag = s.Bename
 	disablebsflag = s.Disablebs
 	updatefileflag = s.Updatefile
@@ -139,6 +140,11 @@ func dopassthroughupdate() {
 		fuflag="-fullupdate"
 
 	}
+	var cacheflag string
+	if ( cachedirflag != "" ) {
+		cacheflag="-cachedir=" + cachedirflag
+
+	}
 	var upflag string
 	if ( updatefileflag != "" ) {
 		upflag="-updatefile=" + updatefileflag
@@ -159,6 +165,9 @@ func dopassthroughupdate() {
 	cmd := exec.Command("sysup", wsflag, "-update")
 	if ( fuflag != "" ) {
 		cmd.Args = append(cmd.Args, fuflag)
+	}
+	if ( cacheflag != "" ) {
+		cmd.Args = append(cmd.Args, cacheflag)
 	}
 	if ( upflag != "" ) {
 		cmd.Args = append(cmd.Args, upflag)
@@ -302,10 +311,26 @@ func createnewbe() {
 	if ( err != nil ) {
 		log.Fatal(err)
 	}
+
 	cmd = exec.Command("rm", "-rf", STAGEDIR + "/var/db/pkg")
 	err = cmd.Run()
 	if ( err != nil ) {
 		logtofile("Failed cleanup of: " + STAGEDIR + "/var/db/pkg")
+		log.Fatal(err)
+	}
+
+	// On FreeNAS /etc/pkg is a nullfs memory system, and we want to catch
+	// if any local changes have been made here which aren't yet on the new BE
+	cmd = exec.Command("rm", "-rf", STAGEDIR + "/etc/pkg")
+	err = cmd.Run()
+	if ( err != nil ) {
+		logtofile("Failed cleanup of: " + STAGEDIR + "/etc/pkg")
+		log.Fatal(err)
+	}
+	cmd = exec.Command("cp", "-r", "/etc/pkg", STAGEDIR + "/etc/pkg")
+	err = cmd.Run()
+	if ( err != nil ) {
+		logtofile("Failed copy of: /etc/pkg " + STAGEDIR + "/etc/pkg")
 		log.Fatal(err)
 	}
 
@@ -373,7 +398,7 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	}
 	logtofile("PackageUpdate Stage 2\n-----------------------")
 
-	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y")
+	cmd := exec.Command(PKGBIN)
 	if ( chroot ) {
 		cmd.Args = append(cmd.Args, "-c")
 		cmd.Args = append(cmd.Args, STAGEDIR)
@@ -452,6 +477,12 @@ func updatercscript() {
 		fuflag="-fullupdate"
 
 	}
+	var cacheflag string
+	if ( cachedirflag != "" ) {
+		cacheflag="-cachedir " + cachedirflag
+
+	}
+
 	var upflag string
 	if ( updatefileflag != "" ) {
 		upflag="-updatefile " + updatefileflag
@@ -469,7 +500,7 @@ func updatercscript() {
         fdata := `#!/bin/sh
 PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export PATH
-` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag
+` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag + ` ` + cacheflag
         ioutil.WriteFile(STAGEDIR + "/etc/rc", []byte(fdata), 0755)
 
 }

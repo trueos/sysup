@@ -243,6 +243,7 @@ func startupdate() {
         data := &SendReq{
                 Method:	"update",
                 Fullupdate: fullupdateflag,
+                Cachedir: cachedirflag,
                 Bename:   benameflag,
                 Disablebs:   disablebsflag,
                 Updatefile:   updatefileflag,

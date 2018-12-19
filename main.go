@@ -105,6 +105,20 @@ func checkuid() {
 	}
 }
 
+func setlocs() {
+	// Check if the user provided their own location to store temp data
+	if ( cachedirflag == "" ) {
+		return
+	}
+
+	localsysupdb = cachedirflag
+	localpkgdb = localsysupdb + "/pkgdb"
+	localimgmnt = localsysupdb + "/mnt"
+	localpkgconf = localsysupdb + "/pkg.conf"
+	localcachedir = localsysupdb + "/cache"
+
+}
+
 func main() {
 
 	// Can skip if doing stage2 of update
@@ -118,6 +132,9 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	// Update any variable locations
+	setlocs()
 
 	// Capture any sigint
 	interrupt := make(chan os.Signal, 1)
