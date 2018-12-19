@@ -664,11 +664,13 @@ func activatebe() {
 
 func startfetch() error {
 
-	var dependflag string
+	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-F", "-y", "-U")
+
+	// Are we doing a full update?
 	if ( fullupdateflag ) {
-		dependflag = "-f"
+		cmd.Args = append(cmd.Args, "-f")
 	}
-	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-F", "-y", "-U", dependflag)
+
 	sendinfomsg("Starting package downloads")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
