@@ -285,6 +285,7 @@ func cleanupbe() {
 
 func createnewbe() {
 	// Start creating the new BE and mount it for package ops
+	logtofile("Creating new boot-environment")
 	sendinfomsg("Creating new Boot-Environment")
 	cmd := exec.Command(BEBIN, "create", BESTAGE)
 	err := cmd.Run()
@@ -304,15 +305,17 @@ func createnewbe() {
 	cmd = exec.Command("rm", "-rf", STAGEDIR + "/var/db/pkg")
 	err = cmd.Run()
 	if ( err != nil ) {
+		logtofile("Failed cleanup of: " + STAGEDIR + "/var/db/pkg")
 		log.Fatal(err)
 	}
 
         // Copy over the existing local database
-        srcDir := STAGEDIR + localpkgdb
+        srcDir := localpkgdb
         destDir := STAGEDIR + "/var/db/pkg"
-        cpCmd := exec.Command("mv", srcDir, destDir)
+        cpCmd := exec.Command("cp", "-r", srcDir, destDir)
         err = cpCmd.Run()
         if ( err != nil ) {
+		logtofile("Failed copy of: " + localpkgdb + " -> " + STAGEDIR + "/var/db/pkg")
                 log.Fatal(err)
         }
 
@@ -326,6 +329,7 @@ func createnewbe() {
 IGNORE_OSVERSION: YES` + `
 ` + reposdir
         ioutil.WriteFile(STAGEDIR + localpkgconf, []byte(fdata), 0644)
+	logtofile("Done creating new boot-environment")
 }
 
 func updatekernel() {
@@ -369,18 +373,20 @@ func updateincremental(chroot bool, force bool, usingws bool) {
 	}
 	logtofile("PackageUpdate Stage 2\n-----------------------")
 
-	cmd := exec.Command(PKGBIN)
-	if ( force ) {
-		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f")
-		if ( ! chroot ) {
-			cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y", "-f")
-		}
-	} else {
-		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y")
-		if ( ! chroot ) {
-			cmd = exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-U", "-y")
-		}
+	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y")
+	if ( chroot ) {
+		cmd.Args = append(cmd.Args, "-c")
+		cmd.Args = append(cmd.Args, STAGEDIR)
 	}
+	cmd.Args = append(cmd.Args, "-C")
+	cmd.Args = append(cmd.Args, localpkgconf)
+	cmd.Args = append(cmd.Args, "upgrade")
+	cmd.Args = append(cmd.Args, "-U")
+	cmd.Args = append(cmd.Args, "-y")
+	if ( force ) {
+		cmd.Args = append(cmd.Args, "-f")
+	}
+	logtofile("Starting incremental upgrade with: " + strings.Join(cmd.Args, " "))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		destroymddev()

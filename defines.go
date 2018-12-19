@@ -39,9 +39,10 @@ var trainpubkey = "/usr/local/share/" + toolname + "/trains.pub"
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
-var localpkgdb = "/var/db/" + toolname + "/pkgdb"
-var localimgmnt = "/var/db/" + toolname + "/mnt"
-var localpkgconf = "/var/db/" + toolname + "/pkg.conf"
+var localsysupdb = "/var/db/" + toolname
+var localpkgdb = localsysupdb + "/pkgdb"
+var localimgmnt = localsysupdb + "/mnt"
+var localpkgconf = localsysupdb + "/pkg.conf"
 var localcachedir = "/var/cache/" + toolname
 var localmddev = ""
 //----------------------------------------------------
@@ -65,6 +66,7 @@ var stage2flag bool
 var updateflag bool
 var updatefileflag string
 var updatekeyflag string
+var cachedirflag string
 var websocketflag bool
 func init() {
 	flag.BoolVar(&checkflag, "check", false, "Check system status")
@@ -77,6 +79,7 @@ func init() {
 	flag.StringVar(&updatefileflag, "updatefile", "", "Use the specified update image instead of fetching from remote")
 	flag.StringVar(&updatekeyflag, "updatekey", "", "Use the specified update pubkey for offline updates (Defaults to none)")
 	flag.StringVar(&benameflag, "bename", "", "Set the name of the new boot-environment for updating. Must not exist yet.")
+	flag.StringVar(&cachedirflag, "cachedir", "", "Set the temp data location where we download files / cache data")
 	flag.BoolVar(&websocketflag, "websocket", false, "Start websocket server for direct API access and events")
 	flag.Parse()
 }
