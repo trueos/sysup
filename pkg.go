@@ -132,7 +132,7 @@ url: file:///` + localimgmnt
 	return reposdir
 }
 
-func preparepkgconfig() {
+func preparepkgconfig(altabi string) {
 	derr := os.MkdirAll(localpkgdb, 0755)
 	if derr != nil {
 		exitcleanup(derr, "Failed making directory: " + localpkgdb)
@@ -149,6 +149,12 @@ func preparepkgconfig() {
 		reposdir = mkreposfile("", localpkgdb)
 	}
 
+	// Check if we have an alternative ABI to specify
+	var abiline string
+	if ( altabi != "" ) {
+		abiline="ABI: " + altabi
+	}
+
 	// Copy over the existing local database
 	srcFolder := "/var/db/pkg/local.sqlite"
 	destFolder := localpkgdb + "/local.sqlite"
@@ -162,29 +168,51 @@ func preparepkgconfig() {
 	fdata := `PKG_CACHEDIR: ` + localcachedir + `
 PKG_DBDIR: ` + localpkgdb + `
 IGNORE_OSVERSION: YES
-` + reposdir
+` + reposdir + `
+` + abiline
 	ioutil.WriteFile(localpkgconf, []byte(fdata), 0644)
 }
 
-func updatepkgdb() {
+func updatepkgdb(newabi string) {
 	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "update", "-f")
-	sendinfomsg("Updating package remote database")
-	stdout, err := cmd.StdoutPipe()
+	if ( newabi == "" ) {
+		sendinfomsg("Updating package remote database")
+	} else {
+		sendinfomsg("Updating package remote database with new ABI: " + newabi)
+	}
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		exitcleanup(err, "Failed updating package remote DB")
 	}
 	if err := cmd.Start(); err != nil {
 		exitcleanup(err, "Failed starting update of package remote DB")
 	}
-	buff := bufio.NewScanner(stdout)
+	buff := bufio.NewScanner(stderr)
 	// Iterate over buff and append content to the slice
 	var allText []string
+	abierr := false
 	for buff.Scan() {
-		allText = append(allText, buff.Text()+"\n")
+		line := buff.Text()
+		if ( strings.Contains(line, "wrong ABI:") && newabi == "" ) {
+			words := strings.Split(string(line), " ")
+			if ( len(words) < 8 ) {
+				logtofile("Unable to determine new ABI")
+				log.Fatal("Unable to determine new ABI")
+		        }
+			abierr = true
+			//fmt.Println("New ABI: " + words[8])
+			// Try updating with the new ABI now
+			preparepkgconfig(words[8])
+			updatepkgdb(words[8])
+		}
+		allText = append(allText, line+"\n")
 	}
-	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		exitcleanup(err, "Failed running pkg update:" + strings.Join(allText, "\n"))
+		if ( ! abierr ) {
+			fmt.Println(allText)
+			logtofile("Failed running pkg update: " + strings.Join(allText, "\n"))
+			exitcleanup(err, "Failed running pkg update:" + strings.Join(allText, "\n"))
+		}
 	}
 }
 

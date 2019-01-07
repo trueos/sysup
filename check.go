@@ -182,8 +182,8 @@ func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 }
 
 func checkforupdates() {
-	preparepkgconfig()
-	updatepkgdb()
+	preparepkgconfig("")
+	updatepkgdb("")
 	updetails, haveupdates, uerr:= updatedryrun(true)
 	if ( uerr != nil ) {
                 destroymddev()

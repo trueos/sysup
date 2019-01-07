@@ -73,11 +73,11 @@ func doupdate(message []byte) {
 
 	// Setup the pkg config directory
 	logtofile("Setting up pkg database")
-	preparepkgconfig()
+	preparepkgconfig("")
 
 	// Update the package database
 	logtofile("Updating package repo database")
-	updatepkgdb()
+	updatepkgdb("")
 
 	// Check that updates are available
 	logtofile("Checking for updates")
