@@ -352,7 +352,8 @@ func createnewbe() {
         // Update the config file
         fdata := `PKG_CACHEDIR: ` + localcachedir + `
 IGNORE_OSVERSION: YES` + `
-` + reposdir
+` + reposdir + `
+` + abioverride
         ioutil.WriteFile(STAGEDIR + localpkgconf, []byte(fdata), 0644)
 	logtofile("Done creating new boot-environment")
 }
@@ -360,6 +361,12 @@ IGNORE_OSVERSION: YES` + `
 func updatekernel() {
 	sendinfomsg("Starting stage 1 kernel update")
 	logtofile("KernelUpdate Stage 1\n-----------------------")
+
+	// Check if we need to update pkg itself first
+	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "ports-mgmt/pkg")
+	fullout, err := pkgcmd.CombinedOutput()
+	sendinfomsg(string(fullout))
+	logtofile(string(fullout))
 
 	// KPM 11/9/2018
 	// Additionally we may need to do something to ensure we don't load port kmods here on reboot

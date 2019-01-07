@@ -46,6 +46,7 @@ var localimgmnt = localsysupdb + "/mnt"
 var localpkgconf = localsysupdb + "/pkg.conf"
 var localcachedir = localsysupdb + "/cache"
 var localmddev = ""
+var abioverride = ""
 //----------------------------------------------------
 
 // Boot-Environment defaults

@@ -150,9 +150,8 @@ func preparepkgconfig(altabi string) {
 	}
 
 	// Check if we have an alternative ABI to specify
-	var abiline string
 	if ( altabi != "" ) {
-		abiline="ABI: " + altabi
+		abioverride="ABI: " + altabi
 	}
 
 	// Copy over the existing local database
@@ -169,7 +168,7 @@ func preparepkgconfig(altabi string) {
 PKG_DBDIR: ` + localpkgdb + `
 IGNORE_OSVERSION: YES
 ` + reposdir + `
-` + abiline
+` + abioverride
 	ioutil.WriteFile(localpkgconf, []byte(fdata), 0644)
 }
 
