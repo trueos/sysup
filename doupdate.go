@@ -38,7 +38,7 @@ func getkernelpkgname() string {
 	logtofile("Local Kernel package: " + kernpkg)
 	shellcmd := PKGBIN + " info " + kernpkg + " | grep '^Name' | awk '{print $3}'"
 	cmd := exec.Command("/bin/sh", "-c", shellcmd)
-	kernpkgname, err := cmd.CombinedOutput()
+	kernpkgname, err := cmd.Output()
 	if err != nil {
 	    fmt.Println(fmt.Sprint(err) + ": " + string(kernpkgname))
 	    log.Fatal("ERROR query of kernel package name")
@@ -371,7 +371,13 @@ func updatekernel() {
 	// KPM 11/9/2018
 	// Additionally we may need to do something to ensure we don't load port kmods here on reboot
 	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", kernelpkg)
+	logtofile("Starting Kernel upgrade with: " + strings.Join(cmd.Args, " "))
 	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -390,6 +396,12 @@ func updatekernel() {
 	}
         // Pkg returns 0 on sucess
         if err := cmd.Wait(); err != nil {
+		errbuf, _:= ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			sendinfomsg(errarr[i])
+			logtofile(errarr[i])
+		}
 		sendfatalmsg("Failed kernel update!")
         }
 	sendinfomsg("Finished stage 1 kernel update")
