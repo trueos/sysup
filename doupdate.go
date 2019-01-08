@@ -644,14 +644,14 @@ func preparestage2() {
 	// Now activate
 	out, err := exec.Command("beadm", "activate", bename).CombinedOutput()
 	if ( err != nil ) {
-		copylogexit(err, "Failed beadm activate: " + bename + " " + string(out))
+		logtofile("Failed beadm activate: " + bename + " " + string(out))
 	}
 
 	// Make sure everything is mounted and ready!
 	cmd = exec.Command("zfs", "mount", "-a")
-	err = cmd.Run()
+	out, err = cmd.CombinedOutput()
 	if ( err != nil ) {
-		copylogexit(err, "Failed zfs mount -a")
+		logtofile("Failed zfs mount -a: " + string(out))
 	}
 
 	// Need to try and kldload linux64 / linux so some packages can update
