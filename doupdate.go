@@ -360,7 +360,7 @@ IGNORE_OSVERSION: YES` + `
 
 func updatekernel() {
 	sendinfomsg("Starting stage 1 kernel update")
-	logtofile("KernelUpdate Stage 1\n-----------------------")
+	logtofile("Kernel Update Stage 1\n-----------------------")
 
 	// Check if we need to update pkg itself first
 	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "ports-mgmt/pkg")
@@ -405,8 +405,112 @@ func updatekernel() {
 		sendfatalmsg("Failed kernel update!")
         }
 	sendinfomsg("Finished stage 1 kernel update")
-	logtofile("FinishedKernelUpdate Stage 1\n-----------------------")
+	logtofile("Finished Kernel Update Stage 1\n-----------------------")
 
+	// Check if we need to do any ZFS automagic
+	sanitize_zfs()
+
+}
+
+func sanitize_zfs() {
+
+        // Check if the new kernel has ZFS module built in, or if we need to update the port
+        if _, err := os.Stat(STAGEDIR + "/boot/kernel/zfs.ko") ; os.IsNotExist(err) {
+		update_zol_port()
+	} else {
+		// If we have a base system ZFS, we need to check if the port needs removing
+		_, err := os.Stat(STAGEDIR + "/boot/modules/zfs.ko")
+		if ( err == nil ) {
+			cleanup_zol_port()
+		}
+	}
+}
+
+func cleanup_zol_port() {
+
+	sendinfomsg("Cleaning ZFS Port")
+	logtofile("ZFS Port cleanup stage 1\n-----------------------")
+
+	// Update the sysutils/zol port
+	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-U", "-y", "sysutils/zol-kmod")
+	logtofile("Cleaning up ZFS port with: " + strings.Join(cmd.Args, " "))
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and append content to the slice
+	var allText []string
+	for buff.Scan() {
+		line := buff.Text()
+		sendinfomsg(line)
+		logtofile(line)
+		allText = append(allText, line+"\n")
+	}
+        // Pkg returns 0 on sucess
+        if err := cmd.Wait(); err != nil {
+		errbuf, _:= ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			sendinfomsg(errarr[i])
+			logtofile(errarr[i])
+		}
+        }
+	sendinfomsg("Finished stage 1 ZFS update")
+	logtofile("Finished ZFS port cleanup stage 1\n-----------------------")
+}
+
+func update_zol_port() {
+
+	sendinfomsg("Updating ZFS port")
+	logtofile("ZFS port update stage 1\n-----------------------")
+
+	// Update the sysutils/zol port
+	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "sysutils/zol")
+	logtofile("Starting ZFS upgrade with: " + strings.Join(cmd.Args, " "))
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and append content to the slice
+	var allText []string
+	for buff.Scan() {
+		line := buff.Text()
+		sendinfomsg(line)
+		logtofile(line)
+		allText = append(allText, line+"\n")
+	}
+        // Pkg returns 0 on sucess
+        if err := cmd.Wait(); err != nil {
+		errbuf, _:= ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			sendinfomsg(errarr[i])
+			logtofile(errarr[i])
+		}
+		sendfatalmsg("Failed kernel update!")
+        }
+	sendinfomsg("Finished ZFS port update")
+	logtofile("Finished ZFS port update stage 1\n-----------------------")
 }
 
 func updateincremental(chroot bool, force bool, usingws bool) {
