@@ -946,7 +946,7 @@ func updateuefi(disk string) bool {
 			} else {
 				tgt = "/boot/efi/efi/boot/bootx64.efi"
 			}
-			cmd := exec.Command("cp", "/boot/boot1.efi", tgt)
+			cmd := exec.Command("cp", "/boot/loader.efi", tgt)
 			cerr := cmd.Run()
 			if cerr != nil {
 				logtofile("Unable to copy efi file: " + tgt)
