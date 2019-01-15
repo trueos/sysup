@@ -62,7 +62,7 @@ These arguments are add-ons for the "-update" argument and are typically not nee
 sysup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
 
 ## Local Train Configuration
-- Sysup Config File: "/usr/local/etc/sysupjson"
+- Sysup Config File: "/usr/local/etc/sysup.json"
  
 This config file needs to be installed on every local system and provides the information necessary to retrieve information about available update trains.
  
