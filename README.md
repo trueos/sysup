@@ -62,7 +62,7 @@ These arguments are add-ons for the "-update" argument and are typically not nee
 sysup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
 
 ## Local Train Configuration
-- Config File: "/usr/local/etc/sysup/trains.json"
+- Sysup Config File: "/usr/local/etc/sysupjson"
  
 This config file needs to be installed on every local system and provides the information necessary to retrieve information about available update trains.
  
@@ -83,7 +83,7 @@ This config file needs to be installed on every local system and provides the in
 - "trainsurl" (string) : URL for where to fetch the latest manifest of available update trains.
 
 ## ONLINE TRAIN MANIFEST
-This is the file publicly provided by some package repository manager or distribution, and lists all the known trains for their product/distribution. This manifest can (and should) be signed to ensure the integrity of the contents between the online publisher and the client system(s) which will be using it.
+This is the file publicly provided by some package repository manager or distribution, and lists all the known package repositories for their product/distribution. This manifest must be signed to ensure the integrity of the contents between the online publisher and the client system(s) which will be using it. The signature file for the trains manifest needs to be in the same directory and with the same name as the manifest but with ".sha1" on the end of the filename (example.json, example.json.sha1).
 
 **WARNING** : The manifest contains information on both available *and* obsolete trains. If a package repo is removed, then the train should be marked as depricated *but left in the manifest*. Removing a train from the manifest may result in unexpected behavior on client systems that are set to follow that train.
 
