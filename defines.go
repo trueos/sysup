@@ -111,6 +111,7 @@ type ConfigFile struct {
 	Cachedir string `json:"cachedir"`
 	OfflineUpdateKey string `json:"offlineupdatekey"`
 	TrainsURL string `json:"trainsurl"`
+	TrainsPubKey string `json:"trainspubkey"`
 }
 
 

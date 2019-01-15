@@ -23,6 +23,7 @@ func loadconfig() bool {
 	s := ConfigFile{
 		Bootstrap: false,
 		BootstrapFatal: false,
+		TrainsPubKey: "",
 	}
 	if err := json.Unmarshal(dat, &s); err != nil {
 		log.Fatal(err)
@@ -32,6 +33,11 @@ func loadconfig() bool {
 	bootstrap = s.Bootstrap
 	bootstrapfatal = s.BootstrapFatal
 	trainsurl = s.TrainsURL
+
+	// If we have a trains pubkey file specified for verification
+	if ( s.TrainsPubKey != "" ) {
+		trainpubkey = s.TrainsPubKey
+	}
 
 	// Don't update these if already set on the CLI
 	if ( updatekeyflag != "" ) {
