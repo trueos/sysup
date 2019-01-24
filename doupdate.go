@@ -468,6 +468,9 @@ func startupgrade() {
 	// Check if we need to do any ZFS automagic
 	sanitize_zfs()
 
+	// Update the boot-loader
+	updateloader(STAGEDIR)
+
 	// Cleanup nullfs mount
 	doupdatefileumnt(STAGEDIR)
 
@@ -635,21 +638,21 @@ func haveosverchange() bool {
 	return false
 }
 
-func updateloader() {
+func updateloader(stagedir string) {
 	logtofile("Updating Bootloader\n-------------------")
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if (isuefi(disks[i])) {
 			logtofile("Updating EFI boot-loader on: " + disks[i])
-			updateuefi(disks[i])
+			updateuefi(disks[i], stagedir)
 		} else {
 			logtofile("Updating GPT boot-loader on: " + disks[i])
-			updategpt(disks[i])
+			updategpt(disks[i], stagedir)
 		}
 	}
 }
 
-func updateuefi(disk string) bool {
+func updateuefi(disk string, stagedir string) bool {
         derr := os.MkdirAll("/boot/efi", 0755)
         if derr != nil {
 		copylogexit(derr, "Failed mkdir /boot/efi")
@@ -691,7 +694,7 @@ func updateuefi(disk string) bool {
 			} else {
 				tgt = "/boot/efi/efi/boot/bootx64.efi"
 			}
-			cmd := exec.Command("cp", "/boot/loader.efi", tgt)
+			cmd := exec.Command("cp", stagedir + "/boot/loader.efi", tgt)
 			cerr := cmd.Run()
 			if cerr != nil {
 				logtofile("Unable to copy efi file: " + tgt)
@@ -713,7 +716,7 @@ func updateuefi(disk string) bool {
 	return false
 }
 
-func updategpt(disk string) bool {
+func updategpt(disk string, stagedir string) bool {
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -734,10 +737,10 @@ func updategpt(disk string) bool {
 				return false
 			}
 			part := linearray[2]
-			bcmd := exec.Command("gpart", "bootcode", "-b", "/boot/pmbr", "-p", "gptzfsboot", "-i", part)
+			bcmd := exec.Command("gpart", "bootcode", "-b", stagedir + "/boot/pmbr", "-p", stagedir + "/boot/gptzfsboot", "-i", part)
 			berr := bcmd.Run()
 			if berr != nil {
-				copylogexit(berr, "Failed gpart bootcode -b /boot/pmbr -p gptzfsboot -i " + part)
+				copylogexit(berr, "Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part)
 			}
 			return true
 		}
