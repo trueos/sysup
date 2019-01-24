@@ -65,11 +65,11 @@ func connectws() {
 			connected = true
 			break
 		}
-		time.Sleep(100 * time.Millisecond);
 		// If we fail first connect, lets fire up the internal server
-		if ( attempt == 1 ) {
+		if ( attempt == 0 ) {
 			go startws()
 		}
+		time.Sleep(100 * time.Millisecond);
 	}
 	if (!connected) {
 		log.Fatal("Failed connecting to websocket server", err)
