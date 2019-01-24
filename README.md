@@ -71,8 +71,9 @@ This config file needs to be installed on every local system and provides the in
 {
   "bootstrap" : true,
   "bootstrapfatal" : false,
-  "offlineupdatekey" : "/usr/share/keys/sysup-trains.pub",
-  "trainsurl" : "https://my.pkg-repo.com/trains-manifest.json"
+  "offlineupdatekey" : "/usr/share/keys/sysup-pkg.pub",
+  "trainsurl" : "https://my.pkg-repo.com/trains-manifest.json",
+  "trainspubkey" : "/usr/share/keys/sysup-trains.pub"
 }
 ```
 
@@ -81,6 +82,7 @@ This config file needs to be installed on every local system and provides the in
 - "bootstrapfatal" (boolian) : (NOT USED YET) If the bootstrap fails, should this fail the entire update.
 - "offlineupdatekey" (string) : Path to a public key file to use for offline updates. Alternative to using the "-updatekey" CLI option.
 - "trainsurl" (string) : URL for where to fetch the latest manifest of available update trains.
+- "trainspubkey" (string) : Path to the public key file for verifying the integrity of the trains manifest fetched via URL.
 
 ## ONLINE TRAIN MANIFEST
 This is the file publicly provided by some package repository manager or distribution, and lists all the known package repositories for their product/distribution. This manifest must be signed to ensure the integrity of the contents between the online publisher and the client system(s) which will be using it. The signature file for the trains manifest needs to be in the same directory and with the same name as the manifest but with ".sha1" on the end of the filename (example.json, example.json.sha1).
