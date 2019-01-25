@@ -121,13 +121,6 @@ func setlocs() {
 
 func main() {
 
-	// Can skip if doing stage2 of update
-	// For some reason this fails on some systems when trying to get the current user
-	// possibly due to / not being writable?
-	if ( ! stage2flag ) {
-		checkuid()
-	}
-
 	if len(os.Args) == 1 {
 		flag.Usage()
 		os.Exit(1)
@@ -146,6 +139,13 @@ func main() {
 
 	// Load the local config file if it exists
 	loadconfig()
+
+	if ( bootloaderflag ) {
+		connectws()
+		updatebootloader()
+		closews()
+		os.Exit(0)
+	}
 
 	if ( listtrainflag ) {
 		connectws()
@@ -172,11 +172,6 @@ func main() {
 		connectws()
 		startupdate()
 		closews()
-		os.Exit(0)
-	}
-
-	if ( stage2flag ) {
-		startstage2()
 		os.Exit(0)
 	}
 

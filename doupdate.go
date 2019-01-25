@@ -96,12 +96,6 @@ func doupdate(message []byte) {
 		fullupdateflag = true
 	}
 
-	// If we have been triggerd to run a full update
-	var twostageupdate = false
-	if ( fullupdateflag ) {
-		twostageupdate = true
-	}
-
 	// Start downloading our files if we aren't doing stand-alone upgrade
 	if ( updatefileflag == "" ) {
 		logtofile("Fetching file updates")
@@ -119,14 +113,8 @@ func doupdate(message []byte) {
 		return
 	}
 
-	// Search if a kernel is apart of this update
-	if ( details.KernelUp ) {
-		twostageupdate = true
-	}
-	kernelpkg = details.KernelPkg
-
-	// Start the upgrade with bool passed if doing kernel update
-	startupgrade(twostageupdate)
+	// Start the upgrade
+	startupgrade()
 
 }
 
@@ -358,71 +346,12 @@ IGNORE_OSVERSION: YES` + `
 	logtofile("Done creating new boot-environment")
 }
 
-func updatekernel() {
-	sendinfomsg("Starting stage 1 kernel update")
-	logtofile("Kernel Update Stage 1\n-----------------------")
-
-	// Check if we need to update pkg itself first
-	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "ports-mgmt/pkg")
-	fullout, err := pkgcmd.CombinedOutput()
-	sendinfomsg(string(fullout))
-	logtofile(string(fullout))
-
-	// KPM 11/9/2018
-	// Additionally we may need to do something to ensure we don't load port kmods here on reboot
-	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", kernelpkg)
-	logtofile("Starting Kernel upgrade with: " + strings.Join(cmd.Args, " "))
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-	buff := bufio.NewScanner(stdout)
-
-	// Iterate over buff and append content to the slice
-	var allText []string
-	for buff.Scan() {
-		line := buff.Text()
-		sendinfomsg(line)
-		logtofile(line)
-		allText = append(allText, line+"\n")
-	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
-		errbuf, _:= ioutil.ReadAll(stderr)
-		errarr := strings.Split(string(errbuf), "\n")
-		for i, _ := range errarr {
-			sendinfomsg(errarr[i])
-			logtofile(errarr[i])
-		}
-		sendfatalmsg("Failed kernel update!")
-        }
-	sendinfomsg("Finished stage 1 kernel update")
-	logtofile("Finished Kernel Update Stage 1\n-----------------------")
-
-	// Check if we need to do any ZFS automagic
-	sanitize_zfs()
-
-}
-
 func sanitize_zfs() {
 
-        // Check if the new kernel has ZFS module built in, or if we need to update the port
-        if _, err := os.Stat(STAGEDIR + "/boot/kernel/zfs.ko") ; os.IsNotExist(err) {
-		update_zol_port()
-	} else {
-		// If we have a base system ZFS, we need to check if the port needs removing
-		_, err := os.Stat(STAGEDIR + "/boot/modules/zfs.ko")
-		if ( err == nil ) {
-			cleanup_zol_port()
-		}
+	// If we have a base system ZFS, we need to check if the port needs removing
+	_, err := os.Stat(STAGEDIR + "/boot/modules/zfs.ko")
+	if ( err == nil ) {
+		cleanup_zol_port()
 	}
 }
 
@@ -469,25 +398,41 @@ func cleanup_zol_port() {
 	logtofile("Finished ZFS port cleanup stage 1\n-----------------------")
 }
 
-func update_zol_port() {
+func updateincremental(force bool) {
+	sendinfomsg("Starting package update")
+	logtofile("PackageUpdate\n-----------------------")
 
-	sendinfomsg("Updating ZFS port")
-	logtofile("ZFS port update stage 1\n-----------------------")
+	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "ports-mgmt/pkg")
+	fullout, err := pkgcmd.CombinedOutput()
+	sendinfomsg(string(fullout))
+	logtofile(string(fullout))
 
-	// Update the sysutils/zol port
-	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "sysutils/zol")
-	logtofile("Starting ZFS upgrade with: " + strings.Join(cmd.Args, " "))
+	// Setup our main update process
+	cmd := exec.Command(PKGBIN)
+	cmd.Args = append(cmd.Args, "-c")
+	cmd.Args = append(cmd.Args, STAGEDIR)
+	cmd.Args = append(cmd.Args, "-C")
+	cmd.Args = append(cmd.Args, localpkgconf)
+	cmd.Args = append(cmd.Args, "upgrade")
+	cmd.Args = append(cmd.Args, "-U")
+	cmd.Args = append(cmd.Args, "-I")
+	cmd.Args = append(cmd.Args, "-y")
+
+	// Reinstall everything?
+	if ( force ) {
+		cmd.Args = append(cmd.Args, "-f")
+	}
+	logtofile("Starting upgrade with: " + strings.Join(cmd.Args, " "))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal(err)
+		destroymddev()
+		logtofile("Failed starting pkg upgrade stdout!")
+		sendfatalmsg("Failed starting pkg upgrade stdout!")
 	}
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		destroymddev()
+		logtofile("Failed starting pkg upgrade!")
+		sendfatalmsg("Failed starting pkg upgrade!")
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -496,139 +441,20 @@ func update_zol_port() {
 	for buff.Scan() {
 		line := buff.Text()
 		sendinfomsg(line)
-		logtofile(line)
-		allText = append(allText, line+"\n")
-	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
-		errbuf, _:= ioutil.ReadAll(stderr)
-		errarr := strings.Split(string(errbuf), "\n")
-		for i, _ := range errarr {
-			sendinfomsg(errarr[i])
-			logtofile(errarr[i])
-		}
-		sendfatalmsg("Failed kernel update!")
-        }
-	sendinfomsg("Finished ZFS port update")
-	logtofile("Finished ZFS port update stage 1\n-----------------------")
-}
-
-func updateincremental(chroot bool, force bool, usingws bool) {
-	if ( usingws ) {
-		sendinfomsg("Starting stage 2 package update")
-	} else {
-		log.Println("Starting stage 2 package update")
-	}
-	logtofile("PackageUpdate Stage 2\n-----------------------")
-
-	cmd := exec.Command(PKGBIN)
-	if ( chroot ) {
-		cmd.Args = append(cmd.Args, "-c")
-		cmd.Args = append(cmd.Args, STAGEDIR)
-	}
-	cmd.Args = append(cmd.Args, "-C")
-	cmd.Args = append(cmd.Args, localpkgconf)
-	cmd.Args = append(cmd.Args, "upgrade")
-	cmd.Args = append(cmd.Args, "-U")
-	cmd.Args = append(cmd.Args, "-y")
-	if ( force ) {
-		cmd.Args = append(cmd.Args, "-f")
-	}
-	logtofile("Starting incremental upgrade with: " + strings.Join(cmd.Args, " "))
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		destroymddev()
-		if ( usingws ) {
-			logtofile("Failed starting pkg upgrade stdout!")
-			sendfatalmsg("Failed starting pkg upgrade stdout!")
-		} else {
-			copylogexit(err, "Failed starting pkg upgrade stdout!")
-		}
-	}
-	if err := cmd.Start(); err != nil {
-		destroymddev()
-		if ( usingws) {
-			logtofile("Failed starting pkg upgrade!")
-			sendfatalmsg("Failed starting pkg upgrade!")
-		} else {
-			copylogexit(err, "Failed starting pkg upgrade!")
-		}
-	}
-	buff := bufio.NewScanner(stdout)
-
-	// Iterate over buff and append content to the slice
-	var allText []string
-	for buff.Scan() {
-		line := buff.Text()
-		if ( usingws ) {
-			sendinfomsg(line)
-		} else {
-			log.Println(line)
-		}
 		logtofile("pkg: " + line)
 		allText = append(allText, line+"\n")
 	}
         // Pkg returns 0 on sucess
         if err := cmd.Wait(); err != nil {
 		destroymddev()
-		if ( usingws) {
-			logtofile("Failed pkg upgrade!")
-			sendfatalmsg("Failed pkg upgrade!")
-		} else {
-			copylogexit(err, "Failed pkg upgrade!")
-		}
+		logtofile("Failed pkg upgrade!")
+		sendfatalmsg("Failed pkg upgrade!")
         }
-	if ( usingws ) {
-		sendinfomsg("Finished stage 2 package update")
-	}
-	logtofile("FinishedPackageUpdate Stage 2\n-----------------------")
-
+	sendinfomsg("Finished stage package update")
+	logtofile("FinishedPackageUpdate\n-----------------------")
 }
 
-func updatercscript() {
-        // Intercept the /etc/rc script
-        src := STAGEDIR + "/etc/rc"
-        dest := STAGEDIR + "/etc/rc-updatergo"
-        cpCmd := exec.Command("mv", src, dest)
-	err := cpCmd.Run()
-        if ( err != nil ) {
-                log.Fatal(err)
-        }
-
-	var fuflag string
-	if ( fullupdateflag ) {
-		fuflag="-fullupdate"
-
-	}
-	var cacheflag string
-	if ( cachedirflag != "" ) {
-		cacheflag="-cachedir " + cachedirflag
-
-	}
-
-	var upflag string
-	if ( updatefileflag != "" ) {
-		upflag="-updatefile " + updatefileflag
-	}
-
-	selfbin, _ := os.Executable()
-        ugobin := "/." + toolname
-        cpCmd = exec.Command("install", "-m", "755", selfbin, STAGEDIR + ugobin)
-	err = cpCmd.Run()
-        if ( err != nil ) {
-                log.Fatal(err)
-        }
-
-	// Splat down our intercept
-        fdata := `#!/bin/sh
-PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
-export PATH
-` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag + ` ` + cacheflag
-        ioutil.WriteFile(STAGEDIR + "/etc/rc", []byte(fdata), 0755)
-
-}
-
-func startupgrade(twostage bool) {
+func startupgrade() {
 
 	cleanupbe()
 
@@ -637,12 +463,13 @@ func startupgrade(twostage bool) {
 	// If we are using standalone update need to nullfs mount the pkgs
 	doupdatefilemnt()
 
-	if ( twostage ) {
-		updatekernel()
-		updatercscript()
-	} else {
-		updateincremental(true, fullupdateflag, true)
-	}
+	updateincremental(fullupdateflag)
+
+	// Check if we need to do any ZFS automagic
+	sanitize_zfs()
+
+	// Update the boot-loader
+	updateloader(STAGEDIR)
 
 	// Cleanup nullfs mount
 	doupdatefileumnt(STAGEDIR)
@@ -723,88 +550,7 @@ func copylogexit(perr error, text string) {
         cpCmd := exec.Command("cp", src, dest)
 	cpCmd.Run()
 
-	cmd := exec.Command("reboot")
-	cmd.Run()
-	os.Exit(0)
-}
-
-func preparestage2() {
-	log.Println("Preparing to start update...")
-
-	// Need to ensure ZFS is all mounted and ready
-	cmd := exec.Command("mount", "-u", "rw", "/")
-	err := cmd.Run()
-	if ( err != nil ) {
-		copylogexit(err, "Failed mounting -u rw")
-	}
-
-	// Set the OLD BE as the default in case we crash and burn...
-	dat, err := ioutil.ReadFile("/.updategooldbename")
-	if ( err != nil ) {
-		copylogexit(err, "Failed read .updategooldbename")
-	}
-
-	bename := strings.TrimSpace(string(dat))
-	// Now activate
-	out, err := exec.Command("beadm", "activate", bename).CombinedOutput()
-	if ( err != nil ) {
-		logtofile("Failed beadm activate: " + bename + " " + string(out))
-	}
-
-	// Make sure everything is mounted and ready!
-	cmd = exec.Command("zfs", "mount", "-a")
-	out, err = cmd.CombinedOutput()
-	if ( err != nil ) {
-		logtofile("Failed zfs mount -a: " + string(out))
-	}
-
-	// Need to try and kldload linux64 / linux so some packages can update
-	cmd = exec.Command("kldload", "linux64")
-	err = cmd.Run()
-	if ( err != nil ) {
-		logtofile("WARNING: unable to kldload linux64")
-	}
-	cmd = exec.Command("kldload", "linux")
-	err = cmd.Run()
-	if ( err != nil ) {
-		logtofile("WARNING: unable to kldload linux")
-	}
-
-	// Put back /etc/rc-updatergo so that pkg can update it properly
-	src := "/etc/rc-updatergo"
-        dest := "/etc/rc"
-        cpCmd := exec.Command("mv", src, dest)
-	err = cpCmd.Run()
-        if ( err != nil ) {
-		copylogexit(err, "Failed restoring /etc/rc")
-        }
-}
-
-func startstage2() {
-
-	preparestage2()
-
-	if ( updatefileflag != "" ) {
-		mountofflineupdate()
-	}
-
-	updateincremental(false, fullupdateflag, false)
-
-	destroymddev()
-
-	// SUCCESS! Lets finish and activate the new BE
-	activatebe()
-
-	// Lastly lets update the loader
-	updateloader()
-
-	// Lastly reboot into the new environment
-	cmd := exec.Command("reboot")
-	err := cmd.Run()
-	if ( err != nil ) {
-		log.Fatal(err)
-	}
-
+	sendfatalmsg("Aborting")
 }
 
 func activatebe() {
@@ -890,32 +636,42 @@ func haveosverchange() bool {
 	return false
 }
 
-func updateloader() {
+func updateloader(stagedir string) {
 	logtofile("Updating Bootloader\n-------------------")
+	sendinfomsg("Updating Bootloader")
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if (isuefi(disks[i])) {
 			logtofile("Updating EFI boot-loader on: " + disks[i])
-			updateuefi(disks[i])
+			sendinfomsg("Updating EFI boot-loader on: " + disks[i])
+			if ( ! updateuefi(disks[i], stagedir) ) {
+				sendfatalmsg("Updating boot-loader failed!")
+			}
 		} else {
 			logtofile("Updating GPT boot-loader on: " + disks[i])
-			updategpt(disks[i])
+			sendinfomsg("Updating GPT boot-loader on: " + disks[i])
+			if ( ! updategpt(disks[i], stagedir) ) {
+				sendfatalmsg("Updating boot-loader failed!")
+			}
 		}
 	}
 }
 
-func updateuefi(disk string) bool {
+func updateuefi(disk string, stagedir string) bool {
         derr := os.MkdirAll("/boot/efi", 0755)
         if derr != nil {
+		sendinfomsg("ERROR: Failed mkdir /boot/efi")
 		copylogexit(derr, "Failed mkdir /boot/efi")
         }
 
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		sendinfomsg("ERROR: Failed gpart show")
 		copylogexit(derr, "Failed gpart show")
 	}
 	if err := cmd.Start(); err != nil {
+		sendinfomsg("ERROR: Failed starting gpart show")
 		copylogexit(derr, "Failed starting gpart show")
 	}
 	buff := bufio.NewScanner(stdout)
@@ -924,8 +680,9 @@ func updateuefi(disk string) bool {
 	for buff.Scan() {
 		line := strings.TrimSpace(buff.Text())
 		if ( strings.Contains(line, " efi ") ) {
-			linearray := strings.Split(string(line), " ")
+			linearray := strings.Fields(line)
 			if ( len(linearray) < 3) {
+				sendinfomsg("ERROR: Unable to locate EFI partition")
 				logtofile("Unable to locate EFI partition..." + string(line))
 				return false
 			}
@@ -935,6 +692,7 @@ func updateuefi(disk string) bool {
 			bcmd := exec.Command("mount", "-t", "msdosfs", "/dev/" + disk + "p" +  part, "/boot/efi")
 			berr := bcmd.Run()
 			if berr != nil {
+				sendinfomsg("ERROR: Unable to mount EFI partition")
 				logtofile("Unable to mount EFI partition: " + part)
 				return false
 			}
@@ -946,9 +704,10 @@ func updateuefi(disk string) bool {
 			} else {
 				tgt = "/boot/efi/efi/boot/bootx64.efi"
 			}
-			cmd := exec.Command("cp", "/boot/loader.efi", tgt)
+			cmd := exec.Command("cp", stagedir + "/boot/loader.efi", tgt)
 			cerr := cmd.Run()
 			if cerr != nil {
+				sendinfomsg("ERROR: Unable to copy efi file " + tgt)
 				logtofile("Unable to copy efi file: " + tgt)
 				return false
 			}
@@ -957,6 +716,7 @@ func updateuefi(disk string) bool {
 			bcmd = exec.Command("umount", "-f", "/boot/efi")
 			berr = bcmd.Run()
 			if berr != nil {
+				sendinfomsg("ERROR: Unable to umount EFI pratition " + part)
 				logtofile("Unable to umount EFI partition: " + part)
 				return false
 			}
@@ -964,18 +724,20 @@ func updateuefi(disk string) bool {
 			return true
 		}
 	}
+	sendinfomsg("ERROR: Unable to locate EFI partition on: " + string(disk))
 	logtofile("Unable to locate EFI partition on: " + string(disk))
 	return false
 }
 
-
-func updategpt(disk string) bool {
+func updategpt(disk string, stagedir string) bool {
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		sendinfomsg("ERROR: Failed gpart show")
 		copylogexit(err, "Failed gpart show")
 	}
 	if err := cmd.Start(); err != nil {
+		sendinfomsg("ERROR: Failed starting gpart show")
 		copylogexit(err, "Failed starting gpart show")
 	}
 	buff := bufio.NewScanner(stdout)
@@ -984,20 +746,23 @@ func updategpt(disk string) bool {
 	for buff.Scan() {
 		line := strings.TrimSpace(buff.Text())
 		if ( strings.Contains(line, " freebsd-boot ") ) {
-			linearray := strings.Split(string(line), " ")
+			linearray := strings.Fields(line)
 			if ( len(linearray) < 3) {
+				sendinfomsg("ERROR: Failed to locate GPT boot partition...")
 				logtofile("Unable to locate GPT boot partition..." + string(line))
 				return false
 			}
 			part := linearray[2]
-			bcmd := exec.Command("gpart", "bootcode", "-b", "/boot/pmbr", "-p", "gptzfsboot", "-i", part)
+			bcmd := exec.Command("gpart", "bootcode", "-b", stagedir + "/boot/pmbr", "-p", stagedir + "/boot/gptzfsboot", "-i", part, disk)
 			berr := bcmd.Run()
 			if berr != nil {
-				copylogexit(berr, "Failed gpart bootcode -b /boot/pmbr -p gptzfsboot -i " + part)
+				sendinfomsg("Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part + " " + disk)
+				copylogexit(berr, "Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part + " " + disk)
 			}
 			return true
 		}
 	}
+	sendinfomsg("Unable to locate freebsd-boot partition on: " + string(disk))
 	logtofile("Unable to locate freebsd-boot partition on: " + string(disk))
 	return false
 }
@@ -1016,8 +781,11 @@ func isuefi(disk string) bool {
 	// Iterate over buff and look for disk matches
 	for buff.Scan() {
 		line := buff.Text()
-		if ( strings.Contains(line, "freebsd-boot") ) {
+		if ( strings.Contains(line, " efi ") ) {
 			return true
+		}
+		if ( strings.Contains(line, "freebsd-boot") ) {
+			return false
 		}
 	}
 	return false
@@ -1091,6 +859,7 @@ func getzpooldisks() []string {
 			continue
 		}
 		logtofile("Updating boot-loader on disk: " + kerndisks[i])
+		diskarr = append(diskarr, kerndisks[i])
         }
 	return diskarr
 }

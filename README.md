@@ -54,10 +54,7 @@ These arguments are add-ons for the "-update" argument and are typically not nee
 - **-fullupdate**
    - Force a "full" update of all packages (including kernel/world).
    - Default Value: This is automatically determined based on whether the base packages (kernel/world) are tagged as newer on the package repository.
-- **-stage2**
-   - Start stage2 of an update (installing non-kernel package updates)
-   - **WARNING** This is a debugging option that is only used internally. This should *not* be run manually by the user.
-   
+
 # TRAINS
 sysup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
 
