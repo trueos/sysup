@@ -140,6 +140,13 @@ func main() {
 	// Load the local config file if it exists
 	loadconfig()
 
+	if ( bootloaderflag ) {
+		connectws()
+		updatebootloader()
+		closews()
+		os.Exit(0)
+	}
+
 	if ( listtrainflag ) {
 		connectws()
 		listtrains()

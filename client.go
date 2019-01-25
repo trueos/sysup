@@ -66,6 +66,17 @@ func parsejsonmsg(message []byte) int {
 		}
 		var infomsg string = s.Info
 		fmt.Println(infomsg)
+	case "updatebootloader":
+		var s struct {
+			Envelope
+			InfoMsg
+		}
+		if err := json.Unmarshal(message, &s); err != nil {
+			log.Fatal(err)
+		}
+		var infomsg string = s.Info
+		fmt.Println(infomsg)
+		os.Exit(0)
 	case "listtrains":
 		var s struct {
 			Envelope
@@ -121,6 +132,37 @@ func startcheck() {
 		"method": "check",
 	}
 	msg, err := json.MarshalIndent(data, "", "\t")
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	//fmt.Println("JSON Message: ", string(msg))
+	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	if send_err != nil {
+		log.Fatal("Failed talking to WS backend:", send_err)
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+
+	// Wait for messages back
+	for {
+		_, message, err := c.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			return
+		}
+		// Do things with the message back
+		parsejsonmsg(message)
+	}
+}
+
+func updatebootloader() {
+        data := &SendReq{
+                Method:	"updatebootloader",
+        }
+
+	msg, err := json.Marshal(data)
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}

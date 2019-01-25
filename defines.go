@@ -59,6 +59,7 @@ var STAGEDIR = "/.updatestage"
 // Setup our CLI Flags
 //----------------------------------------------------
 var benameflag string
+var bootloaderflag bool
 var changetrainflag string
 var checkflag bool
 var disablebsflag bool
@@ -76,6 +77,7 @@ func init() {
 	flag.BoolVar(&listtrainflag, "list-trains", false, "List available trains (if configured)")
 	flag.StringVar(&changetrainflag, "change-train", "", "Change to the specifed new train")
 	flag.BoolVar(&fullupdateflag, "fullupdate", false, "Force a full update")
+	flag.BoolVar(&bootloaderflag, "updatebootloader", false, "Perform one-time update of boot-loader")
 	flag.StringVar(&updatefileflag, "updatefile", "", "Use the specified update image instead of fetching from remote")
 	flag.StringVar(&updatekeyflag, "updatekey", "", "Use the specified update pubkey for offline updates (Defaults to none)")
 	flag.StringVar(&benameflag, "bename", "", "Set the name of the new boot-environment for updating. Must not exist yet.")
