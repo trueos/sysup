@@ -38,12 +38,15 @@ func readws(w http.ResponseWriter, r *http.Request) {
 	        switch env.Method {
 	        case "check":
 			checkforupdates()
-		case "update":
-			doupdate(message)
 		case "listtrains":
 			dotrainlist()
 		case "settrain":
 			dosettrain(message)
+		case "update":
+			doupdate(message)
+		case "updatebootloader":
+			updateloader("")
+			sendblmsg("Finished boot-loader process")
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}
@@ -54,6 +57,25 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		//	log.Println("write:", err)
 		//	break
 		//}
+	}
+}
+
+func sendblmsg(info string) {
+	type JSONReply struct {
+		Method string `json:"method"`
+		Info  string `json:"info"`
+	}
+
+	data := &JSONReply{
+		Method:     "updatebootloader",
+		Info:   info,
+	}
+	msg, err := json.Marshal(data)
+	if err != nil {
+		log.Fatal("Failed encoding JSON:", err)
+	}
+	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+		log.Fatal(err)
 	}
 }
 
