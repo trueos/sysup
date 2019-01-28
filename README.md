@@ -1,7 +1,15 @@
 # sysup
 System Update utility written in GO for TrueOS, FreeNAS, TrueView and related projects that are updated using FreeBSD's pkg base.
 
-# Usage/Examples
+# Command-line Usage and Details
+## Full lists of options
+* `sysup [-websocket] [-addr <address>]` : Start a system-wide websocket backend
+* `sysup [-addr <address>] -check [-updatefile <img file> [-updatekey <keyfile>]]` : Check for updates
+* `sysup [-addr <address>] -update [-fullupdate] [-disablebootstrap] [-bename <name>] [-updatefile <img file> [-updatekey <keyfile>]]` : Start updates
+* `sysup [-addr <address>] -list-trains` : List the available package trains
+* `sysup [-addr <address>] -change-train <train-name>` : Change to a different package train
+
+## Typical Examples
 - General Usage:
 `sysup [-check | -update]`
 - Offline Usage:
@@ -20,14 +28,6 @@ Only **one** of these arguments may be used at a time.
 - **-change-train TRAIN_NAME**
    - Reconfigure the package repository files to point to the designated TRAIN_NAME.
    - ***WARNING*** This will remove *all* package repository configuration files on the system and create a single "/etc/pkg/Train.conf" file containing the configuration for the desired package train.
-
-## Daemonizing the updater
-- **-websocket**
-   - Startup a websocket service for direct API access and events
-   - This is a primary argument that should not be combined with any other flags except possibly `-addr`
-- **-addr ADDRESS**
-   - Websocket service address (IP:portnumber). This is a general option for all primary arguments to allow it to talk to a currently-running websocket service
-   - Default value: "127.0.0.1:8134"
    
 ## Secondary/Optional Arguments
 There are a number of secondary/optional flags that can be used for additional functionality:
@@ -54,7 +54,18 @@ These arguments are add-ons for the "-update" argument and are typically not nee
 - **-fullupdate**
    - Force a "full" update of all packages (including kernel/world).
    - Default Value: This is automatically determined based on whether the base packages (kernel/world) are tagged as newer on the package repository.
-
+- **-stage2**
+   - Start stage2 of an update (installing non-kernel package updates)
+   - **WARNING** This is a debugging option that is only used internally. This should *not* be run manually by the user.
+   
+###  Daemonizing the updater
+- **-websocket**
+   - Startup a websocket service for direct API access and events
+   - This is a primary argument that should not be combined with any other flags except possibly `-addr`
+- **-addr ADDRESS**
+   - Websocket service address (IP:portnumber). This is a general option for all primary arguments to allow it to talk to a currently-running websocket service
+   - Default value: "127.0.0.1:8134"
+   
 # TRAINS
 sysup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
 
