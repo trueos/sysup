@@ -194,7 +194,7 @@ func createnewpkgconf( train TrainDef ) {
 	// Write the new conf file
 	fdata := `# TRAINNAME ` + train.Name + `
 
-Train: {
+`+ train.Name + `: {
   url: "` + train.PkgURL + `",
   signature_type: "pubkey",
   pubkey: "/usr/share/keys/train-pkg.key",
