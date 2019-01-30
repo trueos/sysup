@@ -41,34 +41,37 @@ func logtofile(info string) {
 func startws() {
         log.SetFlags(0)
         http.HandleFunc("/ws", readws)
-        log.Fatal(http.ListenAndServe(*addr, nil))
+        //Make this non-fatal so it can be run every time (will fail *instantly* if a websocket is already running on that address)
+        http.ListenAndServe(*addr, nil)
+        //log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
 // Start our client connection to the WS server
 var (
         c   *websocket.Conn
 )
-func connectws() {
+func connectws() 
+	//Try (and fail as needed) to get the websocket started 
+	// This will instantly fail if a websocket server is already running there
+	go startws() 
 	log.SetFlags(0)
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
-//	log.Printf("connecting to %s", u.String())
+	//log.Printf("connecting to %s", u.String())
 
 	err := errors.New("")
 	var connected bool = false
-	for attempt := 0; attempt < 10; attempt++ {
+	for attempt := 0; attempt < 5; attempt++ {
+		//Note: This can take up to 45 seconds to timeout if the websocket server is not running
 		c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
 		if err == nil {
 			connected = true
 			break
 		}
-		// If we fail first connect, lets fire up the internal server
-		if ( attempt == 0 ) {
-			go startws()
-		}
+                //log.Printf("Failed connection: %s", attempt)
 		time.Sleep(100 * time.Millisecond);
 	}
 	if (!connected) {
@@ -79,6 +82,7 @@ func connectws() {
 // Called when we want to signal that its time to close the WS connection
 func closews() {
 	log.Println("Closing WS connection")
+        log.Printf("closing ws")
 	defer c.Close()
 
 	// Cleanly close the connection by sending a close message and then
@@ -88,7 +92,7 @@ func closews() {
 		log.Println("write close:", err)
 		return
 	}
-	time.Sleep(100 * time.Millisecond);
+	time.Sleep(10 * time.Millisecond);
 }
 
 func checkuid() {
