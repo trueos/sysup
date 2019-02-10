@@ -398,9 +398,60 @@ func cleanup_zol_port() {
 	logtofile("Finished ZFS port cleanup stage 1\n-----------------------")
 }
 
+func checkbaseswitch() {
+
+	// Does the new pkg repo have os/userland port origin
+	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "rquery", "-U", "%v", "os/userland")
+	err := cmd.Run()
+	if ( err != nil ) {
+		return
+	}
+
+	// We have os/userland remote, lets see if we are using it already locally
+	cmd = exec.Command(PKGBIN, "query", "-U", "%v", "os/userland")
+	err = cmd.Run()
+	if ( err == nil ) {
+		return
+	}
+
+	// Get list of packages we need to nuke
+	shellcmd := "${PKGBIN} query '%o %n-%v' | grep ^base | awk '{print $2}'"
+	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
+	if ( cmderr != nil ) {
+		log.Fatal("Failed getting base package list")
+	}
+
+	barr := strings.Split(string(output), "\n")
+	for i, _ := range barr {
+		// Unset vital flag
+		sendinfomsg("Removing: " + barr[i])
+		logtofile("Removing: " + barr[i])
+		cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "set", "-v", "0", barr[i])
+		err := cmd.Run()
+		if ( err != nil ) {
+			log.Fatal("Failed unsetting vital")
+		}
+		// Remove the package now
+		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y", barr[i])
+		err = cmd.Run()
+		if ( err != nil ) {
+			log.Fatal("Failed removing")
+		}
+	}
+
+	// Load new userland / kernel and friends
+	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "install", "-U", "-y", "os/userland", "os/kernel", "os/docs", "os/userland-lib32")
+	fullout, err := pkgcmd.CombinedOutput()
+	sendinfomsg(string(fullout))
+	logtofile(string(fullout))
+}
+
 func updateincremental(force bool) {
 	sendinfomsg("Starting package update")
 	logtofile("PackageUpdate\n-----------------------")
+
+	// Check if we are moving from legacy pkg base to ports-base
+	checkbaseswitch()
 
 	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "upgrade", "-U", "-y", "-f", "ports-mgmt/pkg")
 	fullout, err := pkgcmd.CombinedOutput()
