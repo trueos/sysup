@@ -414,14 +414,24 @@ func checkbaseswitch() {
 		return
 	}
 
+	// Make sure pkg is fetched
+	sendinfomsg("Fetching new base")
+	logtofile("Fetching new base")
+	cmd = exec.Command(PKGBIN, "-C", localpkgconf, "fetch", "-U", "-d", "-y", "os/userland", "os/kernel")
+	err = cmd.Run()
+	if ( err != nil ) {
+		sendfatalmsg("Failed fetching new base")
+	}
+
 	// Get list of packages we need to nuke
-	shellcmd := "${PKGBIN} query '%o %n-%v' | grep ^base | awk '{print $2}'"
+	shellcmd := PKGBIN + " query '%o %n-%v' | grep '^base ' | awk '{print $2}'"
 	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
 	if ( cmderr != nil ) {
 		log.Fatal("Failed getting base package list")
 	}
 
-	barr := strings.Split(string(output), "\n")
+	basepkgs := strings.TrimSpace(string(output))
+	barr := strings.Split(basepkgs, "\n")
 	for i, _ := range barr {
 		// Unset vital flag
 		sendinfomsg("Removing: " + barr[i])
@@ -432,15 +442,25 @@ func checkbaseswitch() {
 			log.Fatal("Failed unsetting vital")
 		}
 		// Remove the package now
-		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y", barr[i])
+		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y", "-f", barr[i])
 		err = cmd.Run()
 		if ( err != nil ) {
 			log.Fatal("Failed removing")
 		}
+		if ( strings.Contains(barr[i], "-runtime-1")) {
+			// If this was the runtime package, need to re-install userland right away
+			sendinfomsg("Boot-strapping userland")
+			pkgcmd := exec.Command(PKGBIN, "-r", STAGEDIR, "-C", localpkgconf, "install", "-U", "-f", "-y", "os/userland")
+			fullout, err := pkgcmd.CombinedOutput()
+			if ( err != nil ) {
+				sendinfomsg(string(fullout))
+				sendfatalmsg("Failed boot-strapping userland")
+			}
+		}
 	}
 
 	// Load new userland / kernel and friends
-	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "install", "-U", "-y", "os/userland", "os/kernel", "os/docs", "os/userland-lib32")
+	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "install", "-U", "-y", "os/userland", "os/kernel")
 	fullout, err := pkgcmd.CombinedOutput()
 	sendinfomsg(string(fullout))
 	logtofile(string(fullout))

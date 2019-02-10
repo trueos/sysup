@@ -273,12 +273,6 @@ func printupdatedetails(details UpdateInfo) {
 	for i, _ := range details.Del {
 		fmt.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
 	}
-
-	if ( details.KernelUp ) {
-		fmt.Println()
-		fmt.Println("Kernel Update will be performed - Two reboots required")
-		fmt.Println("----------------------------------------------------")
-	}
 }
 
 func startupdate() {
