@@ -21,6 +21,7 @@ func loadconfig() bool {
 
 	// Set some defaults for values that may not be in the config file
 	s := ConfigFile{
+		Appliance: false,
 		Bootstrap: false,
 		BootstrapFatal: false,
 		TrainsPubKey: "",
@@ -30,6 +31,7 @@ func loadconfig() bool {
 	}
 
 	// Set our gloabls now
+	appliancemode = s.Appliance
 	bootstrap = s.Bootstrap
 	bootstrapfatal = s.BootstrapFatal
 	trainsurl = s.TrainsURL

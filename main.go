@@ -50,10 +50,11 @@ func startws() {
 var (
         c   *websocket.Conn
 )
-func connectws() 
+
+func connectws() {
 	//Try (and fail as needed) to get the websocket started 
 	// This will instantly fail if a websocket server is already running there
-	go startws() 
+	go startws()
 	log.SetFlags(0)
 
 	interrupt := make(chan os.Signal, 1)
