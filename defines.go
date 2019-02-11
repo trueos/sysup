@@ -36,9 +36,6 @@ var bootstrapfatal = false
 // Default pubkey used for trains
 var trainpubkey = "/usr/local/share/" + toolname + "/trains.pub"
 
-// Are we running in appliance mode?
-var appliancemode = false
-
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
@@ -109,7 +106,6 @@ type DelPkg struct {
 
 // Local configuration file
 type ConfigFile struct {
-	Appliance bool `json:"appliance"`
 	Bootstrap bool `json:"bootstrap"`
 	BootstrapFatal bool `json:"bootstrapfatal"`
 	Cachedir string `json:"cachedir"`

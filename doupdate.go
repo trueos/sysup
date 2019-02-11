@@ -414,6 +414,11 @@ func checkbaseswitch() {
 		return
 	}
 
+	output, cmderr := exec.Command("tar", "czf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc", ".").Output()
+	if ( cmderr != nil ) {
+		sendinfomsg(string(output))
+		sendfatalmsg("Failed saving /etc configuration")
+	}
 	// Make sure pkg is fetched
 	sendinfomsg("Fetching new base")
 	logtofile("Fetching new base")
@@ -425,9 +430,9 @@ func checkbaseswitch() {
 
 	// Get list of packages we need to nuke
 	shellcmd := PKGBIN + " query '%o %n-%v' | grep '^base ' | awk '{print $2}'"
-	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
+	output, cmderr = exec.Command("/bin/sh", "-c", shellcmd).Output()
 	if ( cmderr != nil ) {
-		log.Fatal("Failed getting base package list")
+		sendfatalmsg("Failed getting base package list")
 	}
 
 	basepkgs := strings.TrimSpace(string(output))
@@ -464,6 +469,15 @@ func checkbaseswitch() {
 	fullout, err := pkgcmd.CombinedOutput()
 	sendinfomsg(string(fullout))
 	logtofile(string(fullout))
+
+	// Copy back the /etc changes
+	output, cmderr = exec.Command("tar", "xf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc").Output()
+	if ( cmderr != nil ) {
+		sendinfomsg(string(output))
+		sendfatalmsg("Failed updating /etc configuration")
+	}
+	exec.Command("rm", STAGEDIR + "/.etcbackup.tgz").Run()
+
 }
 
 func updateincremental(force bool) {
@@ -532,61 +546,6 @@ func updateincremental(force bool) {
 
 }
 
-func updatefresh() {
-	sendinfomsg("Starting appliance update")
-	logtofile("ApplianceUpdate\n-----------------------")
-
-	// Start by removing everything from this new BE
-	pkgcmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y")
-	fullout, err := pkgcmd.CombinedOutput()
-	sendinfomsg(string(fullout))
-	logtofile(string(fullout))
-
-	// Setup our main process to install the entire pkg repo 
-	cmd := exec.Command(PKGBIN)
-	cmd.Args = append(cmd.Args, "-c")
-	cmd.Args = append(cmd.Args, STAGEDIR)
-	cmd.Args = append(cmd.Args, "-C")
-	cmd.Args = append(cmd.Args, localpkgconf)
-	cmd.Args = append(cmd.Args, "install")
-	cmd.Args = append(cmd.Args, "-U")
-	cmd.Args = append(cmd.Args, "-I")
-	cmd.Args = append(cmd.Args, "-y")
-	cmd.Args = append(cmd.Args, "-g")
-	cmd.Args = append(cmd.Args, "*")
-
-	logtofile("Starting appliance upgrade with: " + strings.Join(cmd.Args, " "))
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		destroymddev()
-		logtofile("Failed starting pkg install stdout!")
-		sendfatalmsg("Failed starting pkg install stdout!")
-	}
-	if err := cmd.Start(); err != nil {
-		destroymddev()
-		logtofile("Failed starting pkg install!")
-		sendfatalmsg("Failed starting pkg install!")
-	}
-	buff := bufio.NewScanner(stdout)
-
-	// Iterate over buff and append content to the slice
-	var allText []string
-	for buff.Scan() {
-		line := buff.Text()
-		sendinfomsg(line)
-		logtofile("pkg: " + line)
-		allText = append(allText, line+"\n")
-	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
-		destroymddev()
-		logtofile("Failed pkg install!")
-		sendfatalmsg("Failed pkg install!")
-        }
-	sendinfomsg("Finished stage appliance install")
-	logtofile("FinishedApplianceUpdate\n-----------------------")
-}
-
 func startupgrade() {
 
 	cleanupbe()
@@ -596,11 +555,7 @@ func startupgrade() {
 	// If we are using standalone update need to nullfs mount the pkgs
 	doupdatefilemnt()
 
-	if ( appliancemode ) {
-		updatefresh()
-	} else {
-		updateincremental(fullupdateflag)
-	}
+	updateincremental(fullupdateflag)
 
 	// Check if we need to do any ZFS automagic
 	sanitize_zfs()
