@@ -470,6 +470,12 @@ func checkbaseswitch() {
 	sendinfomsg(string(fullout))
 	logtofile(string(fullout))
 
+	// Ensure pkg is boot-strapped again
+	pkgcmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "install", "-U", "-y", "ports-mgmt/pkg")
+	fullout, err = pkgcmd.CombinedOutput()
+	sendinfomsg(string(fullout))
+	logtofile(string(fullout))
+
 	// Copy back the /etc changes
 	output, cmderr = exec.Command("tar", "xf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc").Output()
 	if ( cmderr != nil ) {
