@@ -544,6 +544,15 @@ func updateincremental(force bool) {
 	sendinfomsg("Finished stage package update")
 	logtofile("FinishedPackageUpdate\n-----------------------")
 
+	// Mark essential pkgs
+	critpkg := []string { "ports-mgmt/pkg", "os/userland", "os/kernel" }
+	for i, _ := range critpkg {
+		pkgcmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "set", "-y", "-A", "00", critpkg[i])
+		fullout, err = pkgcmd.CombinedOutput()
+		sendinfomsg(string(fullout))
+		logtofile(string(fullout))
+	}
+
 	// Cleanup orphans
 	pkgcmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "autoremove", "-y")
 	fullout, err = pkgcmd.CombinedOutput()
