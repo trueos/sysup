@@ -477,10 +477,10 @@ func checkbaseswitch() {
 	logtofile(string(fullout))
 
 	// Copy back the /etc changes
-	output, cmderr = exec.Command("tar", "xf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc").Output()
+	output, cmderr = exec.Command("tar", "xf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc").CombinedOutput()
 	if ( cmderr != nil ) {
 		sendinfomsg(string(output))
-		sendfatalmsg("Failed updating /etc configuration")
+		sendinfomsg("WARNING: Tar error while updating /etc configuration")
 	}
 	exec.Command("rm", STAGEDIR + "/.etcbackup.tgz").Run()
 
