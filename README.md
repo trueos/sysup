@@ -86,8 +86,8 @@ This config file needs to be installed on every local system and provides the in
 ```
 
 ### Config File Details
-- "bootstrap" (boolian) : (NOT USED YET) sysup should automatically update itself before doing any other updates
-- "bootstrapfatal" (boolian) : (NOT USED YET) If the bootstrap fails, should this fail the entire update.
+- "bootstrap" (boolean) : (NOT USED YET) sysup should automatically update itself before doing any other updates
+- "bootstrapfatal" (boolean) : (NOT USED YET) If the bootstrap fails, should this fail the entire update.
 - "offlineupdatekey" (string) : Path to a public key file to use for offline updates. Alternative to using the "-updatekey" CLI option.
 - "trainsurl" (string) : URL for where to fetch the latest manifest of available update trains.
 - "trainspubkey" (string) : Path to the public key file for verifying the integrity of the trains manifest fetched via URL.
@@ -126,7 +126,7 @@ This is the file publicly provided by some package repository manager or distrib
 ### Train Object Details
 - "name" (string) : Name of the update train
 - "description" (string) : Description of what the train provides for the end-user.
-- "deprecated" (boolian) : Mark whether a repository is active or deactivated.
+- "deprecated" (boolean) : Mark whether a repository is active or deactivated.
 - "newtrain" (string) : If depricated, automatically migrate the client to this train instead.
 - "pkgurl" (string) : URL for where to find the package repository
 - "pkgkey" (array of strings) : Contents of the public key file used to verify packages from this repository (one line per element in the array).
