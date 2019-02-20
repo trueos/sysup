@@ -408,7 +408,7 @@ func checkbaseswitch() {
 	}
 
 	// We have os/userland remote, lets see if we are using it already locally
-	cmd = exec.Command(PKGBIN, "query", "-U", "%v", "os/userland")
+	cmd = exec.Command(PKGBIN, "query", "%v", "os/userland")
 	err = cmd.Run()
 	if ( err == nil ) {
 		return
