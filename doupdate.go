@@ -484,6 +484,11 @@ func checkbaseswitch() {
 	}
 	exec.Command("rm", STAGEDIR + "/.etcbackup.tgz").Run()
 
+	// Make sure sysup is marked as installed
+	pkgcmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "set", "-y", "-A", "00", "sysutils/sysup")
+	fullout, err = pkgcmd.CombinedOutput()
+	sendinfomsg(string(fullout))
+	logtofile(string(fullout))
 }
 
 func updateincremental(force bool) {
