@@ -268,6 +268,13 @@ func printupdatedetails(details UpdateInfo) {
 	}
 
 	fmt.Println()
+	fmt.Println("The following packages will be reinstalled:")
+	fmt.Println("----------------------------------------------------")
+	for i, _ := range details.Ri {
+		fmt.Println("   " + details.Ri[i].Name + " " + details.Ri[i].Reason)
+	}
+
+	fmt.Println()
 	fmt.Println("The following packages will be removed:")
 	fmt.Println("----------------------------------------------------")
 	for i, _ := range details.Del {

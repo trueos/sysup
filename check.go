@@ -19,6 +19,7 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	details := UpdateInfo{ }
 	detailsNew := NewPkg{ }
 	detailsUp := UpPkg{ }
+	detailsRi := RiPkg{ }
 	detailsDel := DelPkg{ }
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(uptext, "\n")))
@@ -42,11 +43,19 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 			stage = "REMOVE"
 			continue
 		}
+		if ( strings.Contains(line, "REINSTALLED:")) {
+			stage = "REINSTALLED"
+			continue
+		}
 		if ( strings.Contains(line, " to be installed:")) {
 			stage = ""
 			continue
 		}
 		if ( strings.Contains(line, " to be upgraded:")) {
+			stage = ""
+			continue
+		}
+		if ( strings.Contains(line, " to be REINSTALLED:")) {
 			stage = ""
 			continue
 		}
@@ -74,6 +83,17 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 				detailsUp.OldVersion=linearray[1]
 				detailsUp.NewVersion=linearray[3]
 				details.Up = append(details.Up, detailsUp)
+				continue
+			}
+		case "REINSTALLED":
+			if ( strings.Contains(line, " (")) {
+				linearray := strings.Split(line, " (")
+				if ( len(linearray) < 2) {
+					continue
+				}
+				detailsRi.Name=linearray[0]
+				detailsRi.Reason=strings.Replace(linearray[1], ")", "", -1)
+				details.Ri = append(details.Ri, detailsRi)
 				continue
 			}
 		case "REMOVE":

@@ -99,6 +99,11 @@ type UpPkg struct {
 	NewVersion string `json:"NewVersion"`
 }
 
+type RiPkg struct {
+	Name string `json:"name"`
+	Reason string `json:"Reason"`
+}
+
 type DelPkg struct {
 	Name string `json:"name"`
 	Version string `json:"Version"`
@@ -156,6 +161,7 @@ type TrainsDef struct {
 type UpdateInfo struct {
 	New []NewPkg `json:"new"`
 	Up []UpPkg `json:"update"`
+	Ri []RiPkg `json:"reinstall"`
 	Del []DelPkg `json:"delete"`
 	KernelUp bool `json:"kernelup"`
 	KernelPkg string `json:"kernelpkg"`
