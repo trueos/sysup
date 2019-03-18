@@ -447,10 +447,11 @@ func checkbaseswitch() {
 			log.Fatal("Failed unsetting vital")
 		}
 		// Remove the package now
-		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y", "-f", barr[i])
-		err = cmd.Run()
+		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y", "-f", "-g", barr[i])
+		remout, err := cmd.CombinedOutput()
 		if ( err != nil ) {
-			log.Fatal("Failed removing")
+			sendinfomsg(string(remout))
+			sendfatalmsg("Failed removing " + barr[i])
 		}
 		if ( strings.Contains(barr[i], "-runtime-1")) {
 			// If this was the runtime package, need to re-install userland right away
