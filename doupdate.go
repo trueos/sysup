@@ -350,7 +350,7 @@ func sanitize_zfs() {
 
 	// If we have a base system ZFS, we need to check if the port needs removing
 	_, err := os.Stat(STAGEDIR + "/boot/modules/zfs.ko")
-	if ( err == nil ) {
+	if ( err != nil ) {
 		cleanup_zol_port()
 	}
 }
@@ -614,34 +614,28 @@ func renamebe() {
 		BENAME = benameflag
 	}
 
-	// Write the old BE name
-        fdata := BENAME
-        ioutil.WriteFile(STAGEDIR + "/.updategobename", []byte(fdata), 0644)
-
-	// Write the old BE name
-        odata := strings.TrimSpace(getcurrentbe())
-        ioutil.WriteFile(STAGEDIR + "/.updategooldbename", []byte(odata), 0644)
-
 	// Start by unmounting BE
 	cmd := exec.Command("beadm", "umount", "-f", BESTAGE)
 	err := cmd.Run()
 	if ( err != nil ) {
+		logtofile("Failed beadm umount -f")
 		log.Fatal(err)
 	}
 
 	// Now rename BE
-	cmd = exec.Command("beadm", "rename", BESTAGE , BENAME)
+	cmd = exec.Command("beadm", "rename", BESTAGE, BENAME)
 	err = cmd.Run()
 	if ( err != nil ) {
+		logtofile("Failed beadm rename")
 		log.Fatal(err)
 	}
 
 
-	// Lastly setup a one-time boot of this new BE
-	// This should be zfsbootcfg at some point...
+	// Lastly setup a boot of this new BE
 	cmd = exec.Command("beadm", "activate", BENAME)
 	err = cmd.Run()
 	if ( err != nil ) {
+		logtofile("Failed beadm activate")
 		log.Fatal("Failed activating: " + BENAME)
 	}
 
@@ -664,21 +658,6 @@ func copylogexit(perr error, text string) {
 	cpCmd.Run()
 
 	sendfatalmsg("Aborting")
-}
-
-func activatebe() {
-	dat, err := ioutil.ReadFile("/.updategobename")
-	if ( err != nil ) {
-		copylogexit(err, "Failed reading updategobename")
-	}
-
-	// Activate the boot-environment
-	bename := string(dat)
-	cmd := exec.Command("beadm", "activate", bename)
-	err = cmd.Run()
-	if ( err != nil ) {
-		copylogexit(err, "Failed beadm activate: " + bename)
-	}
 }
 
 func startfetch() error {
@@ -717,6 +696,7 @@ func startfetch() error {
 		errbuf, _:= ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
 		for i, _ := range errarr {
+			logtofile(errarr[i])
 			sendinfomsg(errarr[i])
 		}
 		sendfatalmsg("Failed package fetch!")
@@ -847,11 +827,13 @@ func updategpt(disk string, stagedir string) bool {
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		sendinfomsg("ERROR: Failed gpart show")
-		copylogexit(err, "Failed gpart show")
+		logtofile("ERROR: Failed gpart show")
+		return false
 	}
 	if err := cmd.Start(); err != nil {
 		sendinfomsg("ERROR: Failed starting gpart show")
-		copylogexit(err, "Failed starting gpart show")
+		logtofile("ERROR: Failed starting gpart show")
+		return false
 	}
 	buff := bufio.NewScanner(stdout)
 
@@ -870,7 +852,8 @@ func updategpt(disk string, stagedir string) bool {
 			berr := bcmd.Run()
 			if berr != nil {
 				sendinfomsg("Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part + " " + disk)
-				copylogexit(berr, "Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part + " " + disk)
+				logtofile("Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part + " " + disk)
+				return false
 			}
 			return true
 		}
@@ -991,6 +974,9 @@ func diskisinpool(disk string, uuids []string, zpool string) bool {
 	// Iterate over buff and look for disk matches
 	for buff.Scan() {
 		line := buff.Text()
+		if ( strings.Contains(line, " " + disk + " " ) ) {
+			return true
+		}
 		if ( strings.Contains(line, " " + disk + "p") ) {
 			return true
 		}
