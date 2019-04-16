@@ -22,21 +22,21 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			log.Println("read:", err)
 			break
 		}
-		if ( ! json.Valid(message) ) {
+		if !json.Valid(message) {
 			log.Println("INVALID JSON")
 			continue
 
 		}
 
 		// Start decoding the incoming JSON
-	        var env Envelope
+		var env Envelope
 		if err := json.Unmarshal(message, &env); err != nil {
 			sendinfomsg("Invalid JSON received")
 			log.Println("Warning: Invalid JSON message received")
 			log.Println(err)
-	        }
-	        switch env.Method {
-	        case "check":
+		}
+		switch env.Method {
+		case "check":
 			checkforupdates()
 		case "listtrains":
 			dotrainlist()
@@ -63,11 +63,11 @@ func readws(w http.ResponseWriter, r *http.Request) {
 func sendblmsg(info string) {
 	type JSONReply struct {
 		Method string `json:"method"`
-		Info  string `json:"info"`
+		Info   string `json:"info"`
 	}
 
 	data := &JSONReply{
-		Method:     "updatebootloader",
+		Method: "updatebootloader",
 		Info:   info,
 	}
 	msg, err := json.Marshal(data)
@@ -82,11 +82,11 @@ func sendblmsg(info string) {
 func sendinfomsg(info string) {
 	type JSONReply struct {
 		Method string `json:"method"`
-		Info  string `json:"info"`
+		Info   string `json:"info"`
 	}
 
 	data := &JSONReply{
-		Method:     "info",
+		Method: "info",
 		Info:   info,
 	}
 	msg, err := json.Marshal(data)
@@ -101,11 +101,11 @@ func sendinfomsg(info string) {
 func sendshutdownmsg(info string) {
 	type JSONReply struct {
 		Method string `json:"method"`
-		Info  string `json:"info"`
+		Info   string `json:"info"`
 	}
 
 	data := &JSONReply{
-		Method:     "shutdown",
+		Method: "shutdown",
 		Info:   info,
 	}
 	msg, err := json.Marshal(data)
@@ -120,11 +120,11 @@ func sendshutdownmsg(info string) {
 func sendfatalmsg(info string) {
 	type JSONReply struct {
 		Method string `json:"method"`
-		Info  string `json:"info"`
+		Info   string `json:"info"`
 	}
 
 	data := &JSONReply{
-		Method:     "fatal",
+		Method: "fatal",
 		Info:   info,
 	}
 	msg, err := json.Marshal(data)

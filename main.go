@@ -17,10 +17,10 @@ import (
 )
 
 func rotatelog() {
-	if _, err := os.Stat(logfile) ; os.IsNotExist(err) {
+	if _, err := os.Stat(logfile); os.IsNotExist(err) {
 		return
 	}
-	cmd := exec.Command("mv", logfile, logfile + ".previous")
+	cmd := exec.Command("mv", logfile, logfile+".previous")
 	cmd.Run()
 }
 
@@ -32,27 +32,27 @@ func logtofile(info string) {
 	if _, err := f.Write([]byte(info + "\n")); err != nil {
 		log.Fatal(err)
 	}
-	if err:= f.Close(); err != nil {
+	if err := f.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 // Start the websocket server
 func startws() {
-        log.SetFlags(0)
-        http.HandleFunc("/ws", readws)
-        //Make this non-fatal so it can be run every time (will fail *instantly* if a websocket is already running on that address)
-        http.ListenAndServe(*addr, nil)
-        //log.Fatal(http.ListenAndServe(*addr, nil))
+	log.SetFlags(0)
+	http.HandleFunc("/ws", readws)
+	//Make this non-fatal so it can be run every time (will fail *instantly* if a websocket is already running on that address)
+	http.ListenAndServe(websocketAddr, nil)
+	//log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
 // Start our client connection to the WS server
 var (
-        c   *websocket.Conn
+	c *websocket.Conn
 )
 
 func connectws() {
-	//Try (and fail as needed) to get the websocket started 
+	//Try (and fail as needed) to get the websocket started
 	// This will instantly fail if a websocket server is already running there
 	go startws()
 	log.SetFlags(0)
@@ -60,7 +60,7 @@ func connectws() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
+	u := url.URL{Scheme: "ws", Host: websocketAddr, Path: "/ws"}
 	//log.Printf("connecting to %s", u.String())
 
 	err := errors.New("")
@@ -72,10 +72,10 @@ func connectws() {
 			connected = true
 			break
 		}
-                //log.Printf("Failed connection: %s", attempt)
-		time.Sleep(100 * time.Millisecond);
+		//log.Printf("Failed connection: %s", attempt)
+		time.Sleep(100 * time.Millisecond)
 	}
-	if (!connected) {
+	if !connected {
 		log.Fatal("Failed connecting to websocket server", err)
 	}
 }
@@ -83,7 +83,7 @@ func connectws() {
 // Called when we want to signal that its time to close the WS connection
 func closews() {
 	log.Println("Closing WS connection")
-        log.Printf("closing ws")
+	log.Printf("closing ws")
 	defer c.Close()
 
 	// Cleanly close the connection by sending a close message and then
@@ -93,18 +93,18 @@ func closews() {
 		log.Println("write close:", err)
 		return
 	}
-	time.Sleep(10 * time.Millisecond);
+	time.Sleep(10 * time.Millisecond)
 }
 
 func checkuid() {
 	user, err := user.Current()
-	if ( err != nil ) {
+	if err != nil {
 		fmt.Println(err)
 		fmt.Println("Failed getting user.Current()")
 		os.Exit(1)
 		return
 	}
-	if ( user.Uid != "0" ) {
+	if user.Uid != "0" {
 		fmt.Println("ERROR: Must be run as root")
 		os.Exit(1)
 	}
@@ -112,7 +112,7 @@ func checkuid() {
 
 func setlocs() {
 	// Check if the user provided their own location to store temp data
-	if ( cachedirflag == "" ) {
+	if cachedirflag == "" {
 		return
 	}
 
@@ -145,42 +145,42 @@ func main() {
 	// Load the local config file if it exists
 	loadconfig()
 
-	if ( bootloaderflag ) {
+	if bootloaderflag {
 		connectws()
 		updatebootloader()
 		closews()
 		os.Exit(0)
 	}
 
-	if ( listtrainflag ) {
+	if listtrainflag {
 		connectws()
 		listtrains()
 		closews()
 		os.Exit(0)
 	}
 
-	if ( changetrainflag != "" ) {
+	if changetrainflag != "" {
 		connectws()
 		settrain()
 		closews()
 		os.Exit(0)
 	}
 
-	if ( checkflag ) {
+	if checkflag {
 		connectws()
 		startcheck()
 		closews()
 		os.Exit(0)
 	}
 
-	if ( updateflag ) {
+	if updateflag {
 		connectws()
 		startupdate()
 		closews()
 		os.Exit(0)
 	}
 
-	if ( websocketflag ) {
+	if websocketflag {
 		startws()
 		os.Exit(0)
 	}
