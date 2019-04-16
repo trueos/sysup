@@ -41,8 +41,11 @@ func logtofile(info string) {
 func startws() {
 	log.SetFlags(0)
 	http.HandleFunc("/ws", readws)
+	log.Println("Listening on", websocketAddr)
+
 	//Make this non-fatal so it can be run every time (will fail *instantly* if a websocket is already running on that address)
 	http.ListenAndServe(websocketAddr, nil)
+	
 	//log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
