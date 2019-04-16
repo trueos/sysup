@@ -68,6 +68,9 @@ func doupdate(message []byte) {
 	//log.Println("benameflag: " + benameflag)
 	//log.Println("updatefile: " + updatefileflag)
 
+	// Update any variable locations to use cachedirflag
+	setlocs()
+
 	// Start a fresh log file
 	rotatelog()
 
