@@ -8,11 +8,16 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/trueos/sysup/defines"
 )
 
 func getremoteosver() (string, error) {
 
-	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "rquery", "-U", "%At=%Av", "ports-mgmt/pkg")
+	cmd := exec.Command(
+		defines.PKGBIN, "-C", defines.PkgConf, "rquery", "-U", "%At=%Av",
+		"ports-mgmt/pkg",
+	)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -28,10 +33,17 @@ func getremoteosver() (string, error) {
 	}
 	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		exitcleanup(err, "Failed getting remote version of ports-mgmt/pkg: "+strings.Join(allText, "\n"))
+		exitcleanup(
+			err,
+			"Failed getting remote version of ports-mgmt/pkg: "+strings.Join(
+				allText, "\n",
+			),
+		)
 	}
 
-	scanner := bufio.NewScanner(strings.NewReader(strings.Join(allText, "\n")))
+	scanner := bufio.NewScanner(
+		strings.NewReader(strings.Join(allText, "\n")),
+	)
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(line)
@@ -51,59 +63,72 @@ func getremoteosver() (string, error) {
 func mountofflineupdate() {
 
 	// If offline update is already mounted, return
-	if localmddev != "" {
-		logtofile("Using already mounted: " + updatefileflag)
+	if defines.MdDev != "" {
+		logtofile("Using already mounted: " + defines.UpdateFileFlag)
 		return
 	}
 
-	if _, err := os.Stat(updatefileflag); os.IsNotExist(err) {
-		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " does not exist!")
+	if _, err := os.Stat(defines.UpdateFileFlag); os.IsNotExist(err) {
+		sendfatalmsg(
+			"ERROR: Offline update file " + defines.UpdateFileFlag +
+				" does not exist!",
+		)
 		closews()
 		os.Exit(1)
 	}
 
-	logtofile("Mounting offline update: " + updatefileflag)
+	logtofile("Mounting offline update: " + defines.UpdateFileFlag)
 
-	output, cmderr := exec.Command("mdconfig", "-a", "-t", "vnode", "-f", updatefileflag).Output()
+	output, cmderr := exec.Command(
+		"mdconfig", "-a", "-t", "vnode", "-f", defines.UpdateFileFlag,
+	).Output()
 	if cmderr != nil {
-		exitcleanup(cmderr, "Failed mdconfig of offline update file: "+updatefileflag)
+		exitcleanup(
+			cmderr, "Failed mdconfig of offline update file: "+
+				defines.UpdateFileFlag,
+		)
 	}
 
 	// Set the mddevice we have mounted
-	localmddev := strings.TrimSpace(string(output))
-	//log.Println("Local MD device: " + localmddev)
+	defines.MdDev = strings.TrimSpace(string(output))
+	//log.Println("Local MD device: " + defines.MdDev)
 
-	derr := os.MkdirAll(localimgmnt, 0755)
+	derr := os.MkdirAll(defines.ImgMnt, 0755)
 	if derr != nil {
 		log.Fatal(derr)
 	}
 
-	cmd := exec.Command("umount", "-f", localimgmnt)
+	cmd := exec.Command("umount", "-f", defines.ImgMnt)
 	cmd.Run()
 
 	// Mount the image RO
-	cmd = exec.Command("mount", "-o", "ro", "/dev/"+localmddev, localimgmnt)
+	cmd = exec.Command(
+		"mount", "-o", "ro", "/dev/"+defines.MdDev, defines.ImgMnt,
+	)
 	err := cmd.Run()
 	if err != nil {
 		// We failed to mount, cleanup the memory device
-		cmd := exec.Command("mdconfig", "-d", "-u", localmddev)
+		cmd := exec.Command("mdconfig", "-d", "-u", defines.MdDev)
 		cmd.Run()
-		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " cannot be mounted")
-		localmddev = ""
+		sendfatalmsg(
+			"ERROR: Offline update file " + defines.UpdateFileFlag +
+				" cannot be mounted",
+		)
+		defines.MdDev = ""
 		closews()
 		os.Exit(1)
 	}
 }
 
 func destroymddev() {
-	if updatefileflag == "" {
+	if defines.UpdateFileFlag == "" {
 		return
 	}
-	cmd := exec.Command("umount", "-f", localimgmnt)
+	cmd := exec.Command("umount", "-f", defines.ImgMnt)
 	cmd.Run()
-	cmd = exec.Command("mdconfig", "-d", "-u", localmddev)
+	cmd = exec.Command("mdconfig", "-d", "-u", defines.MdDev)
 	cmd.Run()
-	localmddev = ""
+	defines.MdDev = ""
 }
 
 func mkreposfile(prefix string, pkgdb string) string {
@@ -114,11 +139,11 @@ func mkreposfile(prefix string, pkgdb string) string {
 	}
 	// Ugly I know, can probably be re-factored later
 	pkgdata := `Update: {
-url: file:///` + localimgmnt
-	if updatekeyflag != "" {
+url: file:///` + defines.ImgMnt
+	if defines.UpdateKeyFlag != "" {
 		pkgdata += `
   signature_type: "pubkey"
-  pubkey: "` + updatekeyflag + `
+  pubkey: "` + defines.UpdateKeyFlag + `
 `
 	} else {
 		pkgdata += `
@@ -133,30 +158,30 @@ url: file:///` + localimgmnt
 }
 
 func preparepkgconfig(altabi string) {
-	derr := os.MkdirAll(localpkgdb, 0755)
+	derr := os.MkdirAll(defines.PkgDb, 0755)
 	if derr != nil {
-		exitcleanup(derr, "Failed making directory: "+localpkgdb)
+		exitcleanup(derr, "Failed making directory: "+defines.PkgDb)
 	}
-	cerr := os.MkdirAll(localcachedir, 0755)
+	cerr := os.MkdirAll(defines.CacheDir, 0755)
 	if cerr != nil {
-		exitcleanup(cerr, "Failed making directory: "+localcachedir)
+		exitcleanup(cerr, "Failed making directory: "+defines.CacheDir)
 	}
 
 	// If we have an offline file update, lets set that up now
 	var reposdir string
-	if updatefileflag != "" {
+	if defines.UpdateFileFlag != "" {
 		mountofflineupdate()
-		reposdir = mkreposfile("", localpkgdb)
+		reposdir = mkreposfile("", defines.PkgDb)
 	}
 
 	// Check if we have an alternative ABI to specify
 	if altabi != "" {
-		abioverride = "ABI: " + altabi
+		defines.AbiOverride = "ABI: " + altabi
 	}
 
 	// Copy over the existing local database
 	srcFolder := "/var/db/pkg/local.sqlite"
-	destFolder := localpkgdb + "/local.sqlite"
+	destFolder := defines.PkgDb + "/local.sqlite"
 	cpCmd := exec.Command("cp", "-f", srcFolder, destFolder)
 	err := cpCmd.Run()
 	if err != nil {
@@ -164,16 +189,16 @@ func preparepkgconfig(altabi string) {
 	}
 
 	// Create the config file
-	fdata := `PKG_CACHEDIR: ` + localcachedir + `
-PKG_DBDIR: ` + localpkgdb + `
+	fdata := `PKG_CACHEDIR: ` + defines.CacheDir + `
+PKG_DBDIR: ` + defines.PkgDb + `
 IGNORE_OSVERSION: YES
 ` + reposdir + `
-` + abioverride
-	ioutil.WriteFile(localpkgconf, []byte(fdata), 0644)
+` + defines.AbiOverride
+	ioutil.WriteFile(defines.PkgConf, []byte(fdata), 0644)
 }
 
 func updatepkgdb(newabi string) {
-	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "update", "-f")
+	cmd := exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "update", "-f")
 	if newabi == "" {
 		sendinfomsg("Updating package remote database")
 	} else {
@@ -209,15 +234,19 @@ func updatepkgdb(newabi string) {
 	if err := cmd.Wait(); err != nil {
 		if !abierr {
 			fmt.Println(allText)
-			logtofile("Failed running pkg update: " + strings.Join(allText, "\n"))
-			exitcleanup(err, "Failed running pkg update:"+strings.Join(allText, "\n"))
+			logtofile(
+				"Failed running pkg update: " + strings.Join(allText, "\n"),
+			)
+			exitcleanup(
+				err, "Failed running pkg update:"+strings.Join(allText, "\n"),
+			)
 		}
 	}
 }
 
 func exitcleanup(err error, text string) {
 	// If we are using standalone update, cleanup
-	if updatefileflag != "" && localmddev != "" {
+	if defines.UpdateFileFlag != "" && defines.MdDev != "" {
 		destroymddev()
 	}
 	log.Println("ERROR: " + text)

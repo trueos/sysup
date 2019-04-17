@@ -1,4 +1,4 @@
-package main
+package defines
 
 import (
 	"encoding/json"
@@ -7,16 +7,16 @@ import (
 	"os"
 )
 
-func loadconfig() bool {
+func LoadConfig() bool {
 	// Try to load the default config file
-	if _, err := os.Stat(configjson); os.IsNotExist(err) {
+	if _, err := os.Stat(ConfigJson); os.IsNotExist(err) {
 		return false
 	}
 
 	// Load the file into memory
-	dat, err := ioutil.ReadFile(configjson)
+	dat, err := ioutil.ReadFile(ConfigJson)
 	if err != nil {
-		log.Fatal("Failed reading configuration file: " + configjson)
+		log.Fatal("Failed reading configuration file: " + ConfigJson)
 	}
 
 	// Set some defaults for values that may not be in the config file
@@ -30,21 +30,21 @@ func loadconfig() bool {
 	}
 
 	// Set our gloabls now
-	bootstrap = s.Bootstrap
-	bootstrapfatal = s.BootstrapFatal
-	trainsurl = s.TrainsURL
+	Bootstrap = s.Bootstrap
+	BootstrapFatal = s.BootstrapFatal
+	TrainsUrl = s.TrainsURL
 
 	// If we have a trains pubkey file specified for verification
 	if s.TrainsPubKey != "" {
-		trainpubkey = s.TrainsPubKey
+		TrainPubKey = s.TrainsPubKey
 	}
 
 	// Don't update these if already set on the CLI
-	if updatekeyflag != "" {
-		updatekeyflag = s.OfflineUpdateKey
+	if UpdateKeyFlag != "" {
+		UpdateKeyFlag = s.OfflineUpdateKey
 	}
-	if cachedirflag != "" {
-		cachedirflag = s.Cachedir
+	if CacheDirFlag != "" {
+		CacheDirFlag = s.CacheDir
 	}
 
 	return true

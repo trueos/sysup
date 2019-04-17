@@ -14,18 +14,21 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/trueos/sysup/defines"
 )
 
 func rotatelog() {
-	if _, err := os.Stat(logfile); os.IsNotExist(err) {
+	if _, err := os.Stat(defines.LogFile); os.IsNotExist(err) {
 		return
 	}
-	cmd := exec.Command("mv", logfile, logfile+".previous")
+	cmd := exec.Command("mv", defines.LogFile, defines.LogFile+".previous")
 	cmd.Run()
 }
 
 func logtofile(info string) {
-	f, err := os.OpenFile(logfile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(
+		defines.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,11 +44,11 @@ func logtofile(info string) {
 func startws() {
 	log.SetFlags(0)
 	http.HandleFunc("/ws", readws)
-	log.Println("Listening on", websocketAddr)
+	log.Println("Listening on", defines.WebsocketAddr)
 
 	//Make this non-fatal so it can be run every time (will fail *instantly* if a websocket is already running on that address)
-	http.ListenAndServe(websocketAddr, nil)
-	
+	http.ListenAndServe(defines.WebsocketAddr, nil)
+
 	//log.Fatal(http.ListenAndServe(*addr, nil))
 }
 
@@ -63,7 +66,7 @@ func connectws() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	u := url.URL{Scheme: "ws", Host: websocketAddr, Path: "/ws"}
+	u := url.URL{Scheme: "ws", Host: defines.WebsocketAddr, Path: "/ws"}
 	//log.Printf("connecting to %s", u.String())
 
 	err := errors.New("")
@@ -115,15 +118,15 @@ func checkuid() {
 
 func setlocs() {
 	// Check if the user provided their own location to store temp data
-	if cachedirflag == "" {
+	if defines.CacheDirFlag == "" {
 		return
 	}
 
-	localsysupdb = cachedirflag
-	localpkgdb = localsysupdb + "/pkgdb"
-	localimgmnt = localsysupdb + "/mnt"
-	localpkgconf = localsysupdb + "/pkg.conf"
-	localcachedir = localsysupdb + "/cache"
+	defines.SysUpDb = defines.CacheDirFlag
+	defines.PkgDb = defines.SysUpDb + "/pkgdb"
+	defines.ImgMnt = defines.SysUpDb + "/mnt"
+	defines.PkgConf = defines.SysUpDb + "/pkg.conf"
+	defines.CacheDir = defines.SysUpDb + "/cache"
 
 }
 
@@ -146,44 +149,44 @@ func main() {
 	}()
 
 	// Load the local config file if it exists
-	loadconfig()
+	defines.LoadConfig()
 
-	if bootloaderflag {
+	if defines.BootloaderFlag {
 		connectws()
 		updatebootloader()
 		closews()
 		os.Exit(0)
 	}
 
-	if listtrainflag {
+	if defines.ListTrainFlag {
 		connectws()
 		listtrains()
 		closews()
 		os.Exit(0)
 	}
 
-	if changetrainflag != "" {
+	if defines.ChangeTrainFlag != "" {
 		connectws()
 		settrain()
 		closews()
 		os.Exit(0)
 	}
 
-	if checkflag {
+	if defines.CheckFlag {
 		connectws()
 		startcheck()
 		closews()
 		os.Exit(0)
 	}
 
-	if updateflag {
+	if defines.UpdateFlag {
 		connectws()
 		startupdate()
 		closews()
 		os.Exit(0)
 	}
 
-	if websocketflag {
+	if defines.WebsocketFlag {
 		startws()
 		os.Exit(0)
 	}

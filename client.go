@@ -3,14 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/trueos/sysup/defines"
 	"log"
 	"os"
-
-	"github.com/gorilla/websocket"
 )
 
 // Show us our list of trains
-func printtrains(trains []TrainDef, deftrain string) {
+func printtrains(trains []defines.TrainDef, deftrain string) {
 	fmt.Println("Current Train: " + deftrain)
 	fmt.Println("")
 	fmt.Println("The following trains are available:")
@@ -33,15 +33,15 @@ func parsejsonmsg(message []byte) int {
 		return 1
 	}
 	//log.Printf("client-recv: %s", message)
-	var env Envelope
+	var env defines.Envelope
 	if err := json.Unmarshal(message, &env); err != nil {
 		log.Fatal(err)
 	}
 	switch env.Method {
 	case "check":
 		var s struct {
-			Envelope
-			Check
+			defines.Envelope
+			defines.Check
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -57,8 +57,8 @@ func parsejsonmsg(message []byte) int {
 		}
 	case "info":
 		var s struct {
-			Envelope
-			InfoMsg
+			defines.Envelope
+			defines.InfoMsg
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -67,8 +67,8 @@ func parsejsonmsg(message []byte) int {
 		fmt.Println(infomsg)
 	case "updatebootloader":
 		var s struct {
-			Envelope
-			InfoMsg
+			defines.Envelope
+			defines.InfoMsg
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -78,9 +78,9 @@ func parsejsonmsg(message []byte) int {
 		os.Exit(0)
 	case "listtrains":
 		var s struct {
-			Envelope
-			Trains  []TrainDef `json:"trains"`
-			Default string     `json:"default"`
+			defines.Envelope
+			Trains  []defines.TrainDef `json:"trains"`
+			Default string             `json:"default"`
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -89,7 +89,7 @@ func parsejsonmsg(message []byte) int {
 		os.Exit(0)
 	case "settrain":
 		var s struct {
-			Envelope
+			defines.Envelope
 			Train string `json:"train"`
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
@@ -99,8 +99,8 @@ func parsejsonmsg(message []byte) int {
 		os.Exit(0)
 	case "shutdown":
 		var s struct {
-			Envelope
-			InfoMsg
+			defines.Envelope
+			defines.InfoMsg
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -110,8 +110,8 @@ func parsejsonmsg(message []byte) int {
 		os.Exit(0)
 	case "fatal":
 		var s struct {
-			Envelope
-			InfoMsg
+			defines.Envelope
+			defines.InfoMsg
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -156,7 +156,7 @@ func startcheck() {
 }
 
 func updatebootloader() {
-	data := &SendReq{
+	data := &defines.SendReq{
 		Method: "updatebootloader",
 	}
 
@@ -186,7 +186,7 @@ func updatebootloader() {
 }
 
 func listtrains() {
-	data := &SendReq{
+	data := &defines.SendReq{
 		Method: "listtrains",
 	}
 
@@ -216,9 +216,9 @@ func listtrains() {
 }
 
 func settrain() {
-	data := &SendReq{
+	data := &defines.SendReq{
 		Method: "settrain",
-		Train:  changetrainflag,
+		Train:  defines.ChangeTrainFlag,
 	}
 
 	msg, err := json.Marshal(data)
@@ -246,7 +246,7 @@ func settrain() {
 	}
 }
 
-func printupdatedetails(details UpdateInfo) {
+func printupdatedetails(details defines.UpdateInfo) {
 
 	fmt.Println("The following packages will be updated:")
 	fmt.Println("----------------------------------------------------")
@@ -277,13 +277,13 @@ func printupdatedetails(details UpdateInfo) {
 }
 
 func startupdate() {
-	data := &SendReq{
+	data := &defines.SendReq{
 		Method:     "update",
-		Fullupdate: fullupdateflag,
-		Cachedir:   cachedirflag,
-		Bename:     benameflag,
-		Disablebs:  disablebsflag,
-		Updatefile: updatefileflag,
+		Fullupdate: defines.FullUpdateFlag,
+		Cachedir:   defines.CacheDirFlag,
+		Bename:     defines.BeNameFlag,
+		Disablebs:  defines.DisableBsFlag,
+		Updatefile: defines.UpdateFileFlag,
 	}
 
 	msg, err := json.Marshal(data)

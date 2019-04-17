@@ -4,23 +4,23 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"github.com/gorilla/websocket"
+	"github.com/trueos/sysup/defines"
 	"log"
 	"os/exec"
 	"strings"
-
-	"github.com/gorilla/websocket"
 )
 
-func parseupdatedata(uptext []string) *UpdateInfo {
+func parseupdatedata(uptext []string) *defines.UpdateInfo {
 	var stage string
 	var line string
 
 	// Init the structure
-	details := UpdateInfo{}
-	detailsNew := NewPkg{}
-	detailsUp := UpPkg{}
-	detailsRi := RiPkg{}
-	detailsDel := DelPkg{}
+	details := defines.UpdateInfo{}
+	detailsNew := defines.NewPkg{}
+	detailsUp := defines.UpPkg{}
+	detailsRi := defines.RiPkg{}
+	detailsDel := defines.DelPkg{}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(uptext, "\n")))
 	for scanner.Scan() {
@@ -144,11 +144,11 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	return &details
 }
 
-func updatedryrun(sendupdate bool) (*UpdateInfo, bool, error) {
-	details := UpdateInfo{}
+func updatedryrun(sendupdate bool) (*defines.UpdateInfo, bool, error) {
+	details := defines.UpdateInfo{}
 	updetails := &details
 
-	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-n")
+	cmd := exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "upgrade", "-n")
 	sendinfomsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -180,11 +180,11 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool, error) {
 	return updetails, haveupdates, nil
 }
 
-func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
+func sendupdatedetails(haveupdates bool, updetails *defines.UpdateInfo) {
 	type JSONReply struct {
-		Method  string      `json:"method"`
-		Updates bool        `json:"updates"`
-		Details *UpdateInfo `json:"details"`
+		Method  string              `json:"method"`
+		Updates bool                `json:"updates"`
+		Details *defines.UpdateInfo `json:"details"`
 	}
 
 	data := &JSONReply{
@@ -196,7 +196,9 @@ func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(
+		websocket.TextMessage, msg,
+	); err != nil {
 		log.Fatal(err)
 	}
 }
