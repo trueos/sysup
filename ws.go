@@ -2,22 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/gorilla/websocket"
+	"github.com/trueos/sysup/defines"
 	"log"
 	"net/http"
-
-	"github.com/gorilla/websocket"
 )
 
 func readws(w http.ResponseWriter, r *http.Request) {
 	var err error
-	conns, err = updater.Upgrade(w, r, nil)
+	defines.Conns, err = defines.Updater.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("update:", err)
 		return
 	}
-	defer conns.Close()
+	defer defines.Conns.Close()
 	for {
-		_, message, err := conns.ReadMessage()
+		_, message, err := defines.Conns.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			break
@@ -29,7 +29,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Start decoding the incoming JSON
-		var env Envelope
+		var env defines.Envelope
 		if err := json.Unmarshal(message, &env); err != nil {
 			sendinfomsg("Invalid JSON received")
 			log.Println("Warning: Invalid JSON message received")
@@ -52,7 +52,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// log.Printf("server-recv: %s", message)
-		//err = conns.WriteMessage(mt, message)
+		//err = defines.Conns.WriteMessage(mt, message)
 		//if err != nil {
 		//	log.Println("write:", err)
 		//	break
@@ -74,7 +74,7 @@ func sendblmsg(info string) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -93,7 +93,7 @@ func sendinfomsg(info string) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -112,7 +112,7 @@ func sendshutdownmsg(info string) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -131,7 +131,7 @@ func sendfatalmsg(info string) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(websocket.TextMessage, msg); err != nil {
 		log.Fatal(err)
 	}
 }

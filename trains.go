@@ -9,31 +9,34 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"github.com/gorilla/websocket"
+	"github.com/trueos/sysup/defines"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/gorilla/websocket"
 )
 
 // Load the trains from remote
-func loadtrains() (TrainsDef, error) {
+func loadtrains() (defines.TrainsDef, error) {
 
 	// Create our JSON struct
-	s := TrainsDef{}
+	s := defines.TrainsDef{}
 
-	if trainsurl == "" {
-		sendfatalmsg("No train URL defined in JSON configuration: " + configjson)
+	if defines.TrainsUrl == "" {
+		sendfatalmsg(
+			"No train URL defined in JSON configuration: " +
+				defines.ConfigJson,
+		)
 		return s, errors.New("ERROR")
 	}
 
 	//sendinfomsg("Fetching trains configuration")
-	resp, err := http.Get(trainsurl)
+	resp, err := http.Get(defines.TrainsUrl)
 	if err != nil {
-		sendfatalmsg("ERROR: Failed fetching " + trainsurl)
+		sendfatalmsg("ERROR: Failed fetching " + defines.TrainsUrl)
 		return s, errors.New("ERROR")
 	}
 
@@ -49,9 +52,9 @@ func loadtrains() (TrainsDef, error) {
 
 	// Now fetch the sig
 	//sendinfomsg("Fetching trains signature")
-	sresp, serr := http.Get(trainsurl + ".sha1")
+	sresp, serr := http.Get(defines.TrainsUrl + ".sha1")
 	if serr != nil {
-		sendfatalmsg("ERROR: Failed fetching " + trainsurl + ".sha1")
+		sendfatalmsg("ERROR: Failed fetching " + defines.TrainsUrl + ".sha1")
 		return s, errors.New("ERROR")
 	}
 
@@ -87,7 +90,9 @@ func loadtrains() (TrainsDef, error) {
 	hashed := sha512.Sum512(dat)
 
 	// Now verify the signatures match
-	err = rsa.VerifyPKCS1v15(pub.(*rsa.PublicKey), crypto.SHA512, hashed[:], sdat)
+	err = rsa.VerifyPKCS1v15(
+		pub.(*rsa.PublicKey), crypto.SHA512, hashed[:], sdat,
+	)
 	if err != nil {
 		sendfatalmsg("Failed trains verification!")
 		return s, errors.New("ERROR")
@@ -118,11 +123,11 @@ func dotrainlist() {
 }
 
 // Send back details about the train
-func sendtraindetails(trains TrainsDef) {
+func sendtraindetails(trains defines.TrainsDef) {
 	type JSONReply struct {
-		Method  string     `json:"method"`
-		Trains  []TrainDef `json:"trains"`
-		Default string     `json:"default"`
+		Method  string             `json:"method"`
+		Trains  []defines.TrainDef `json:"trains"`
+		Default string             `json:"default"`
 	}
 
 	data := &JSONReply{
@@ -134,7 +139,9 @@ func sendtraindetails(trains TrainsDef) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(
+		websocket.TextMessage, msg,
+	); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -167,20 +174,20 @@ func getdefaulttrain() (string, error) {
 func loadtrainspub() ([]byte, error) {
 	var dat []byte
 	// Try to load the default config file
-	if _, err := os.Stat(trainpubkey); os.IsNotExist(err) {
+	if _, err := os.Stat(defines.TrainPubKey); os.IsNotExist(err) {
 		return dat, err
 	}
 
 	// Load the file into memory
-	dat, err := ioutil.ReadFile(trainpubkey)
+	dat, err := ioutil.ReadFile(defines.TrainPubKey)
 	if err != nil {
-		log.Println("Failed reading train pubkey: " + trainpubkey)
+		log.Println("Failed reading train pubkey: " + defines.TrainPubKey)
 		return dat, err
 	}
 	return dat, nil
 }
 
-func createnewpkgconf(train TrainDef) {
+func createnewpkgconf(train defines.TrainDef) {
 	// Nuke existing pkg configs
 	cmd := exec.Command("/bin/sh", "-c", "rm -f /etc/pkg/*.conf")
 	cmd.Run()
@@ -190,7 +197,10 @@ func createnewpkgconf(train TrainDef) {
 	for i, _ := range train.PkgKey {
 		kdata = append(kdata, train.PkgKey[i])
 	}
-	ioutil.WriteFile("/usr/share/keys/train-pkg.key", []byte(strings.Join(kdata, "\n")), 0644)
+	ioutil.WriteFile(
+		"/usr/share/keys/train-pkg.key", []byte(strings.Join(kdata, "\n")),
+		0644,
+	)
 
 	// Write the new conf file
 	fdata := `# TRAINNAME ` + train.Name + `
@@ -211,8 +221,8 @@ func createnewpkgconf(train TrainDef) {
 func dosettrain(message []byte) {
 	// Get the new train name from JSON
 	var s struct {
-		Envelope
-		SendReq
+		defines.Envelope
+		defines.SendReq
 	}
 	if err := json.Unmarshal(message, &s); err != nil {
 		log.Fatal(err)
@@ -261,7 +271,9 @@ func dosettrain(message []byte) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := conns.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.Conns.WriteMessage(
+		websocket.TextMessage, msg,
+	); err != nil {
 		log.Fatal(err)
 	}
 

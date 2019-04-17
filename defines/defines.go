@@ -1,14 +1,14 @@
-package main
+package defines
 
 import (
 	"flag"
 	"github.com/gorilla/websocket"
 )
 
-var updater = websocket.Upgrader{} // use default options
+var Updater = websocket.Upgrader{} // use default options
 // Start our client connection to the WS server
 var (
-	conns *websocket.Conn
+	Conns *websocket.Conn
 )
 var pkgflags string
 
@@ -16,32 +16,32 @@ var pkgflags string
 var toolname = "sysup"
 
 // Where to log by default
-var logfile = "/var/log/" + toolname + ".log"
+var LogFile = "/var/log/" + toolname + ".log"
 
 // Configuration file location
-var configjson = "/usr/local/etc/" + toolname + ".json"
+var ConfigJson = "/usr/local/etc/" + toolname + ".json"
 
 // Global trains URL
-var trainsurl string
+var TrainsUrl string
 
 // Set our default bootstrap options
-var bootstrap = false
-var bootstrapfatal = false
+var Bootstrap = false
+var BootstrapFatal = false
 
 // Default pubkey used for trains
-var trainpubkey = "/usr/local/share/" + toolname + "/trains.pub"
+var TrainPubKey = "/usr/local/share/" + toolname + "/trains.pub"
 
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
 
-var localsysupdb = "/var/db/" + toolname
-var localpkgdb = localsysupdb + "/pkgdb"
-var localimgmnt = localsysupdb + "/mnt"
-var localpkgconf = localsysupdb + "/pkg.conf"
-var localcachedir = localsysupdb + "/cache"
-var localmddev = ""
-var abioverride = ""
+var SysUpDb = "/var/db/" + toolname
+var PkgDb = SysUpDb + "/pkgdb"
+var ImgMnt = SysUpDb + "/mnt"
+var PkgConf = SysUpDb + "/pkg.conf"
+var CacheDir = SysUpDb + "/cache"
+var MdDev = ""
+var AbiOverride = ""
 
 //----------------------------------------------------
 
@@ -55,99 +55,98 @@ var STAGEDIR = "/.updatestage"
 
 // Setup our CLI Flags
 //----------------------------------------------------
-var addr string
-var benameflag string
-var bootloaderflag bool
-var changetrainflag string
-var checkflag bool
-var disablebsflag bool
-var fullupdateflag bool
-var listtrainflag bool
-var updateflag bool
-var updatefileflag string
-var updatekeyflag string
-var cachedirflag string
-var websocketflag bool
-var websocketAddr string
+var BeNameFlag string
+var BootloaderFlag bool
+var ChangeTrainFlag string
+var CheckFlag bool
+var DisableBsFlag bool
+var FullUpdateFlag bool
+var ListTrainFlag bool
+var UpdateFlag bool
+var UpdateFileFlag string
+var UpdateKeyFlag string
+var CacheDirFlag string
+var WebsocketFlag bool
+var WebsocketAddr string
 
 func init() {
 	flag.BoolVar(
-		&checkflag,
+		&CheckFlag,
 		"check",
 		false,
 		"Check system status",
 	)
 	flag.BoolVar(
-		&disablebsflag,
+		&DisableBsFlag,
 		"disablebootstrap",
 		false,
 		"Disable bootstrap of sysup package on upgrade",
 	)
 	flag.BoolVar(
-		&updateflag,
+		&UpdateFlag,
 		"update",
 		false,
 		"Update to latest packages",
 	)
 
 	flag.BoolVar(
-		&listtrainflag,
+		&ListTrainFlag,
 		"list-trains",
 		false,
 		"List available trains (if configured)",
 	)
 	flag.StringVar(
-		&changetrainflag,
+		&ChangeTrainFlag,
 		"change-train",
 		"",
 		"Change to the specifed new train",
 	)
 	flag.BoolVar(
-		&fullupdateflag,
+		&FullUpdateFlag,
 		"fullupdate",
 		false,
 		"Force a full update",
 	)
 	flag.BoolVar(
-		&bootloaderflag,
+		&BootloaderFlag,
 		"updatebootloader",
 		false,
 		"Perform one-time update of boot-loader",
 	)
 	flag.StringVar(
-		&updatefileflag,
+		&UpdateFileFlag,
 		"updatefile",
 		"",
 		"Use the specified update image instead of fetching from remote",
 	)
 	flag.StringVar(
-		&updatekeyflag,
+		&UpdateKeyFlag,
 		"updatekey",
 		"",
 		"Use the specified update pubkey for offline updates"+
 			" (Defaults to none)",
 	)
 	flag.StringVar(
-		&benameflag,
+		&BeNameFlag,
 		"bename",
 		"",
 		"Set the name of the new boot-environment for updating."+
 			"Must not exist yet.",
 	)
 	flag.StringVar(
-		&cachedirflag,
+		&CacheDirFlag,
 		"cachedir",
 		"",
 		"Set the temp data location where we download files / cache data",
 	)
 	flag.BoolVar(
-		&websocketflag,
+		&WebsocketFlag,
 		"websocket",
 		false,
 		"Start websocket server for direct API access and events",
 	)
 	flag.StringVar(
-		&websocketAddr,
+		&WebsocketAddr,
 		"websocket-addr",
 		"127.0.0.1:8134",
 		"Address to have the websocket server listen on",
@@ -182,7 +181,7 @@ type DelPkg struct {
 type ConfigFile struct {
 	Bootstrap        bool   `json:"bootstrap"`
 	BootstrapFatal   bool   `json:"bootstrapfatal"`
-	Cachedir         string `json:"cachedir"`
+	CacheDir         string `json:"cachedir"`
 	OfflineUpdateKey string `json:"offlineupdatekey"`
 	TrainsURL        string `json:"trainsurl"`
 	TrainsPubKey     string `json:"trainspubkey"`
