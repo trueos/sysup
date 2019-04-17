@@ -43,8 +43,9 @@ func LoadConfig() bool {
 	if UpdateKeyFlag != "" {
 		UpdateKeyFlag = s.OfflineUpdateKey
 	}
+
 	if CacheDirFlag != "" {
-		CacheDirFlag = s.CacheDir
+		s.CacheDir = CacheDirFlag
 	}
 
 	return true

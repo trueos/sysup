@@ -314,6 +314,24 @@ func createnewbe() {
 		log.Fatal(err)
 	}
 
+	// Create the directory for the CacheDir
+	cmd = exec.Command(
+		"mkdir", "-p", defines.STAGEDIR+defines.CacheDir,
+	)
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Mount the CacheDir inside the BE
+	cmd = exec.Command(
+		"mount", "-t", "nullfs", defines.CacheDir, defines.STAGEDIR+
+			defines.CacheDir,
+	)
+	err = cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	cmd = exec.Command("rm", "-rf", defines.STAGEDIR+"/var/db/pkg")
 	err = cmd.Run()
 	if err != nil {
