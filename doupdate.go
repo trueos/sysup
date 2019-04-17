@@ -8,8 +8,8 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -19,17 +19,17 @@ var kernelpkg string = ""
 func getkernelpkgname() string {
 	logtofile("Checking kernel package name")
 	kernfile, kerr := syscall.Sysctl("kern.bootfile")
-	if ( kerr != nil ) {
+	if kerr != nil {
 		logtofile("Failed getting kern.bootfile")
 		log.Fatal(kerr)
 	}
 	kernpkgout, perr := exec.Command(PKGBIN, "which", kernfile).Output()
-	if ( perr != nil ) {
+	if perr != nil {
 		logtofile("Failed which " + kernfile)
 		log.Fatal(perr)
 	}
 	kernarray := strings.Split(string(kernpkgout), " ")
-	if ( len(kernarray) < 6 ) {
+	if len(kernarray) < 6 {
 		logtofile("Unable to determine kernel package name")
 		log.Fatal("Unable to determine kernel package name")
 	}
@@ -40,8 +40,8 @@ func getkernelpkgname() string {
 	cmd := exec.Command("/bin/sh", "-c", shellcmd)
 	kernpkgname, err := cmd.Output()
 	if err != nil {
-	    fmt.Println(fmt.Sprint(err) + ": " + string(kernpkgname))
-	    log.Fatal("ERROR query of kernel package name")
+		fmt.Println(fmt.Sprint(err) + ": " + string(kernpkgname))
+		log.Fatal("ERROR query of kernel package name")
 	}
 	kernel := strings.TrimSpace(string(kernpkgname))
 
@@ -85,22 +85,22 @@ func doupdate(message []byte) {
 	// Check that updates are available
 	logtofile("Checking for updates")
 	details, haveupdates, uerr := updatedryrun(false)
-	if ( uerr != nil ) {
+	if uerr != nil {
 		return
 	}
-	if ( ! haveupdates ) {
+	if !haveupdates {
 		sendfatalmsg("ERROR: No updates to install!")
 		return
 	}
 
 	// Check host OS version
 	logtofile("Checking OS version")
-	if ( haveosverchange() ) {
+	if haveosverchange() {
 		fullupdateflag = true
 	}
 
 	// Start downloading our files if we aren't doing stand-alone upgrade
-	if ( updatefileflag == "" ) {
+	if updatefileflag == "" {
 		logtofile("Fetching file updates")
 		startfetch()
 	}
@@ -109,7 +109,7 @@ func doupdate(message []byte) {
 	// Then restart the update with the fresh binary on a new port
 	//
 	// Skip if the disablebsflag is set
-	if ( details.SysUp && disablebsflag != true) {
+	if details.SysUp && disablebsflag != true {
 		logtofile("Performing bootstrap")
 		dosysupbootstrap()
 		dopassthroughupdate()
@@ -127,26 +127,26 @@ func doupdate(message []byte) {
 // with the same update as previously requested
 func dopassthroughupdate() {
 	var fuflag string
-	if ( fullupdateflag ) {
-		fuflag="-fullupdate"
+	if fullupdateflag {
+		fuflag = "-fullupdate"
 
 	}
 	var cacheflag string
-	if ( cachedirflag != "" ) {
-		cacheflag="-cachedir=" + cachedirflag
+	if cachedirflag != "" {
+		cacheflag = "-cachedir=" + cachedirflag
 
 	}
 	var upflag string
-	if ( updatefileflag != "" ) {
-		upflag="-updatefile=" + updatefileflag
+	if updatefileflag != "" {
+		upflag = "-updatefile=" + updatefileflag
 	}
 	var beflag string
-	if ( benameflag != "" ) {
-		beflag="-bename=" + benameflag
+	if benameflag != "" {
+		beflag = "-bename=" + benameflag
 	}
 	var ukeyflag string
-	if ( updatekeyflag != "" ) {
-		ukeyflag="-updatekey=" + updatekeyflag
+	if updatekeyflag != "" {
+		ukeyflag = "-updatekey=" + updatekeyflag
 	}
 	var wsflag string
 	wsflag = "-addr=127.0.0.1:8135"
@@ -154,19 +154,19 @@ func dopassthroughupdate() {
 	// Start the newly updated sysup binary, passing along our previous flags
 	//upflags := fuflag + " " + upflag + " " + beflag + " " + ukeyflag
 	cmd := exec.Command("sysup", wsflag, "-update")
-	if ( fuflag != "" ) {
+	if fuflag != "" {
 		cmd.Args = append(cmd.Args, fuflag)
 	}
-	if ( cacheflag != "" ) {
+	if cacheflag != "" {
 		cmd.Args = append(cmd.Args, cacheflag)
 	}
-	if ( upflag != "" ) {
+	if upflag != "" {
 		cmd.Args = append(cmd.Args, upflag)
 	}
-	if ( beflag != "" ) {
+	if beflag != "" {
 		cmd.Args = append(cmd.Args, beflag)
 	}
-	if ( ukeyflag != "" ) {
+	if ukeyflag != "" {
 		cmd.Args = append(cmd.Args, ukeyflag)
 	}
 	logtofile("Running bootstrap with flags: " + strings.Join(cmd.Args, " "))
@@ -183,38 +183,38 @@ func dopassthroughupdate() {
 	for buff.Scan() {
 		sendinfomsg(buff.Text())
 	}
-        // Sysup returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
+	// Sysup returns 0 on sucess
+	if err := cmd.Wait(); err != nil {
 		sendfatalmsg("Failed update!")
-        }
+	}
 
 	// Let our local clients know they can finish up
 	sendshutdownmsg("")
 }
 
 func doupdatefileumnt(prefix string) {
-	if ( updatefileflag == "" ) {
+	if updatefileflag == "" {
 		return
 	}
 
 	logtofile("Unmount nullfs")
-	cmd := exec.Command("umount", "-f", prefix + localimgmnt)
+	cmd := exec.Command("umount", "-f", prefix+localimgmnt)
 	err := cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		log.Println("WARNING: Failed to umount " + prefix + localimgmnt)
 	}
 }
 
 func doupdatefilemnt() {
 	// If we are using standalone update need to nullfs mount the pkgs
-	if ( updatefileflag == "" ) {
+	if updatefileflag == "" {
 		return
 	}
 
 	logtofile("Mounting nullfs")
-	cmd := exec.Command("mount_nullfs", localimgmnt, STAGEDIR + localimgmnt)
+	cmd := exec.Command("mount_nullfs", localimgmnt, STAGEDIR+localimgmnt)
 	err := cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		log.Fatal(err)
 	}
 	logtofile("Nullfs mounted at: " + localimgmnt)
@@ -248,25 +248,25 @@ func dosysupbootstrap() {
 		sendinfomsg(line)
 		logtofile(line)
 	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
+	// Pkg returns 0 on sucess
+	if err := cmd.Wait(); err != nil {
 		sendfatalmsg("Failed sysup update!")
-        }
+	}
 
 	cmd = exec.Command("rm", "-rf", "/var/db/pkg")
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		log.Fatal(err)
 	}
 
-        // Copy over the existing local database
-        srcDir := localpkgdb
-        destDir := "/var/db/pkg"
-        cpCmd := exec.Command("mv", srcDir, destDir)
-        err = cpCmd.Run()
-        if ( err != nil ) {
-                log.Fatal(err)
-        }
+	// Copy over the existing local database
+	srcDir := localpkgdb
+	destDir := "/var/db/pkg"
+	cpCmd := exec.Command("mv", srcDir, destDir)
+	err = cpCmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	sendinfomsg("Finished stage 1 Sysup boot-strap")
 	logtofile("FinishedSysUp Stage 1\n-----------------------")
@@ -275,7 +275,7 @@ func dosysupbootstrap() {
 }
 
 func cleanupbe() {
-	cmd := exec.Command("umount", "-f", STAGEDIR + "/dev")
+	cmd := exec.Command("umount", "-f", STAGEDIR+"/dev")
 	cmd.Run()
 	cmd = exec.Command("umount", "-f", STAGEDIR)
 	cmd.Run()
@@ -289,63 +289,63 @@ func createnewbe() {
 	sendinfomsg("Creating new Boot-Environment")
 	cmd := exec.Command(BEBIN, "create", BESTAGE)
 	err := cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		log.Fatal(err)
 	}
 	cmd = exec.Command(BEBIN, "mount", BESTAGE, STAGEDIR)
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		log.Fatal(err)
 	}
-	cmd = exec.Command("mount", "-t", "devfs", "devfs", STAGEDIR + "/dev")
+	cmd = exec.Command("mount", "-t", "devfs", "devfs", STAGEDIR+"/dev")
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	cmd = exec.Command("rm", "-rf", STAGEDIR + "/var/db/pkg")
+	cmd = exec.Command("rm", "-rf", STAGEDIR+"/var/db/pkg")
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		logtofile("Failed cleanup of: " + STAGEDIR + "/var/db/pkg")
 		log.Fatal(err)
 	}
 
 	// On FreeNAS /etc/pkg is a nullfs memory system, and we want to catch
 	// if any local changes have been made here which aren't yet on the new BE
-	cmd = exec.Command("rm", "-rf", STAGEDIR + "/etc/pkg")
+	cmd = exec.Command("rm", "-rf", STAGEDIR+"/etc/pkg")
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		logtofile("Failed cleanup of: " + STAGEDIR + "/etc/pkg")
 		log.Fatal(err)
 	}
-	cmd = exec.Command("cp", "-r", "/etc/pkg", STAGEDIR + "/etc/pkg")
+	cmd = exec.Command("cp", "-r", "/etc/pkg", STAGEDIR+"/etc/pkg")
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		logtofile("Failed copy of: /etc/pkg " + STAGEDIR + "/etc/pkg")
 		log.Fatal(err)
 	}
 
-        // Copy over the existing local database
-        srcDir := localpkgdb
-        destDir := STAGEDIR + "/var/db/pkg"
-        cpCmd := exec.Command("cp", "-r", srcDir, destDir)
-        err = cpCmd.Run()
-        if ( err != nil ) {
+	// Copy over the existing local database
+	srcDir := localpkgdb
+	destDir := STAGEDIR + "/var/db/pkg"
+	cpCmd := exec.Command("cp", "-r", srcDir, destDir)
+	err = cpCmd.Run()
+	if err != nil {
 		logtofile("Failed copy of: " + localpkgdb + " -> " + STAGEDIR + "/var/db/pkg")
-                log.Fatal(err)
-        }
+		log.Fatal(err)
+	}
 
 	var reposdir string
-	if ( updatefileflag != "" ) {
+	if updatefileflag != "" {
 		reposdir = mkreposfile(STAGEDIR, "/var/db/pkg")
 	}
 
-        // Update the config file
-        fdata := `PKG_CACHEDIR: ` + localcachedir + `
+	// Update the config file
+	fdata := `PKG_CACHEDIR: ` + localcachedir + `
 IGNORE_OSVERSION: YES` + `
 ` + reposdir + `
 ` + abioverride
-        ioutil.WriteFile(STAGEDIR + localpkgconf, []byte(fdata), 0644)
+	ioutil.WriteFile(STAGEDIR+localpkgconf, []byte(fdata), 0644)
 	logtofile("Done creating new boot-environment")
 }
 
@@ -353,7 +353,7 @@ func sanitize_zfs() {
 
 	// If we have a base system ZFS, we need to check if the port needs removing
 	_, err := os.Stat(STAGEDIR + "/boot/modules/zfs.ko")
-	if ( err != nil ) {
+	if err != nil {
 		cleanup_zol_port()
 	}
 }
@@ -388,15 +388,15 @@ func cleanup_zol_port() {
 		logtofile(line)
 		allText = append(allText, line+"\n")
 	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
-		errbuf, _:= ioutil.ReadAll(stderr)
+	// Pkg returns 0 on sucess
+	if err := cmd.Wait(); err != nil {
+		errbuf, _ := ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
 		for i, _ := range errarr {
 			sendinfomsg(errarr[i])
 			logtofile(errarr[i])
 		}
-        }
+	}
 	sendinfomsg("Finished stage 1 ZFS update")
 	logtofile("Finished ZFS port cleanup stage 1\n-----------------------")
 }
@@ -406,19 +406,19 @@ func checkbaseswitch() {
 	// Does the new pkg repo have os/userland port origin
 	cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "rquery", "-U", "%v", "os/userland")
 	err := cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		return
 	}
 
 	// We have os/userland remote, lets see if we are using it already locally
 	cmd = exec.Command(PKGBIN, "query", "%v", "os/userland")
 	err = cmd.Run()
-	if ( err == nil ) {
+	if err == nil {
 		return
 	}
 
-	output, cmderr := exec.Command("tar", "czf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc", ".").Output()
-	if ( cmderr != nil ) {
+	output, cmderr := exec.Command("tar", "czf", STAGEDIR+"/.etcbackup.tgz", "-C", STAGEDIR+"/etc", ".").Output()
+	if cmderr != nil {
 		sendinfomsg(string(output))
 		sendfatalmsg("Failed saving /etc configuration")
 	}
@@ -427,14 +427,14 @@ func checkbaseswitch() {
 	logtofile("Fetching new base")
 	cmd = exec.Command(PKGBIN, "-C", localpkgconf, "fetch", "-U", "-d", "-y", "os/userland", "os/kernel")
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		sendfatalmsg("Failed fetching new base")
 	}
 
 	// Get list of packages we need to nuke
 	shellcmd := PKGBIN + " query '%o %n-%v' | grep '^base ' | awk '{print $2}'"
 	output, cmderr = exec.Command("/bin/sh", "-c", shellcmd).Output()
-	if ( cmderr != nil ) {
+	if cmderr != nil {
 		sendfatalmsg("Failed getting base package list")
 	}
 
@@ -446,22 +446,22 @@ func checkbaseswitch() {
 		logtofile("Removing: " + barr[i])
 		cmd := exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "set", "-v", "0", barr[i])
 		err := cmd.Run()
-		if ( err != nil ) {
+		if err != nil {
 			log.Fatal("Failed unsetting vital")
 		}
 		// Remove the package now
 		cmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "delete", "-y", "-f", "-g", barr[i])
 		remout, err := cmd.CombinedOutput()
-		if ( err != nil ) {
+		if err != nil {
 			sendinfomsg(string(remout))
 			sendfatalmsg("Failed removing " + barr[i])
 		}
-		if ( strings.Contains(barr[i], "-runtime-1")) {
+		if strings.Contains(barr[i], "-runtime-1") {
 			// If this was the runtime package, need to re-install userland right away
 			sendinfomsg("Boot-strapping userland")
 			pkgcmd := exec.Command(PKGBIN, "-r", STAGEDIR, "-C", localpkgconf, "install", "-U", "-f", "-y", "os/userland")
 			fullout, err := pkgcmd.CombinedOutput()
-			if ( err != nil ) {
+			if err != nil {
 				sendinfomsg(string(fullout))
 				sendfatalmsg("Failed boot-strapping userland")
 			}
@@ -481,12 +481,12 @@ func checkbaseswitch() {
 	logtofile(string(fullout))
 
 	// Copy back the /etc changes
-	output, cmderr = exec.Command("tar", "xf", STAGEDIR + "/.etcbackup.tgz", "-C", STAGEDIR + "/etc").CombinedOutput()
-	if ( cmderr != nil ) {
+	output, cmderr = exec.Command("tar", "xf", STAGEDIR+"/.etcbackup.tgz", "-C", STAGEDIR+"/etc").CombinedOutput()
+	if cmderr != nil {
 		sendinfomsg(string(output))
 		sendinfomsg("WARNING: Tar error while updating /etc configuration")
 	}
-	exec.Command("rm", STAGEDIR + "/.etcbackup.tgz").Run()
+	exec.Command("rm", STAGEDIR+"/.etcbackup.tgz").Run()
 
 	// Make sure sysup is marked as installed
 	pkgcmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "set", "-y", "-A", "00", "sysutils/sysup")
@@ -519,7 +519,7 @@ func updateincremental(force bool) {
 	cmd.Args = append(cmd.Args, "-y")
 
 	// Reinstall everything?
-	if ( force ) {
+	if force {
 		cmd.Args = append(cmd.Args, "-f")
 	}
 	logtofile("Starting upgrade with: " + strings.Join(cmd.Args, " "))
@@ -544,17 +544,17 @@ func updateincremental(force bool) {
 		logtofile("pkg: " + line)
 		allText = append(allText, line+"\n")
 	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
+	// Pkg returns 0 on sucess
+	if err := cmd.Wait(); err != nil {
 		destroymddev()
 		logtofile("Failed pkg upgrade!")
 		sendfatalmsg("Failed pkg upgrade!")
-        }
+	}
 	sendinfomsg("Finished stage package update")
 	logtofile("FinishedPackageUpdate\n-----------------------")
 
 	// Mark essential pkgs
-	critpkg := []string { "ports-mgmt/pkg", "os/userland", "os/kernel" }
+	critpkg := []string{"ports-mgmt/pkg", "os/userland", "os/kernel"}
 	for i, _ := range critpkg {
 		pkgcmd = exec.Command(PKGBIN, "-c", STAGEDIR, "-C", localpkgconf, "set", "-y", "-A", "00", critpkg[i])
 		fullout, err = pkgcmd.CombinedOutput()
@@ -591,7 +591,7 @@ func startupgrade() {
 	doupdatefileumnt(STAGEDIR)
 
 	// Unmount the devfs point
-	cmd := exec.Command("umount", "-f", STAGEDIR + "/dev")
+	cmd := exec.Command("umount", "-f", STAGEDIR+"/dev")
 	cmd.Run()
 
 	// Rename to proper BE name
@@ -613,14 +613,14 @@ func renamebe() {
 
 	BENAME := strconv.Itoa(year) + "-" + strconv.Itoa(month) + "-" + strconv.Itoa(day) + "-" + strconv.Itoa(hour) + "-" + strconv.Itoa(min) + "-" + strconv.Itoa(sec)
 
-	if ( benameflag != "" ) {
+	if benameflag != "" {
 		BENAME = benameflag
 	}
 
 	// Start by unmounting BE
 	cmd := exec.Command("beadm", "umount", "-f", BESTAGE)
 	err := cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		logtofile("Failed beadm umount -f")
 		log.Fatal(err)
 	}
@@ -628,16 +628,15 @@ func renamebe() {
 	// Now rename BE
 	cmd = exec.Command("beadm", "rename", BESTAGE, BENAME)
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		logtofile("Failed beadm rename")
 		log.Fatal(err)
 	}
 
-
 	// Lastly setup a boot of this new BE
 	cmd = exec.Command("beadm", "activate", BENAME)
 	err = cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		logtofile("Failed beadm activate")
 		log.Fatal("Failed activating: " + BENAME)
 	}
@@ -647,7 +646,7 @@ func renamebe() {
 /*
 * Something has gone horribly wrong, lets make a copy of the
 * log file and reboot into the old BE for later debugging
-*/
+ */
 func copylogexit(perr error, text string) {
 
 	logtofile("FAILED Upgrade!!!")
@@ -656,8 +655,8 @@ func copylogexit(perr error, text string) {
 	log.Println(text)
 
 	src := logfile
-        dest := "/var/log/updatego.failed"
-        cpCmd := exec.Command("cp", src, dest)
+	dest := "/var/log/updatego.failed"
+	cpCmd := exec.Command("cp", src, dest)
 	cpCmd.Run()
 
 	sendfatalmsg("Aborting")
@@ -668,7 +667,7 @@ func startfetch() error {
 	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-F", "-y", "-U")
 
 	// Are we doing a full update?
-	if ( fullupdateflag ) {
+	if fullupdateflag {
 		cmd.Args = append(cmd.Args, "-f")
 	}
 
@@ -694,9 +693,9 @@ func startfetch() error {
 		sendinfomsg(line)
 		allText = append(allText, line+"\n")
 	}
-        // If we get a non-0 back, report the full error
-        if err := cmd.Wait(); err != nil {
-		errbuf, _:= ioutil.ReadAll(stderr)
+	// If we get a non-0 back, report the full error
+	if err := cmd.Wait(); err != nil {
+		errbuf, _ := ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
 		for i, _ := range errarr {
 			logtofile(errarr[i])
@@ -704,29 +703,29 @@ func startfetch() error {
 		}
 		sendfatalmsg("Failed package fetch!")
 		return err
-        }
+	}
 	sendinfomsg("Finished package downloads")
 
-        return nil
+	return nil
 }
 
 func haveosverchange() bool {
 	// Check the host OS version
 	logtofile("Checking OS version")
 	OSINT, oerr := syscall.SysctlUint32("kern.osreldate")
-	if ( oerr != nil ) {
+	if oerr != nil {
 		log.Fatal(oerr)
 	}
 	REMOTEVER, err := getremoteosver()
-	if ( err != nil ) {
+	if err != nil {
 		log.Fatal(err)
 	}
 
 	OSVER := fmt.Sprint(OSINT)
 	logtofile("OS Version: " + OSVER + " -> " + REMOTEVER)
-	if ( OSVER != REMOTEVER ) {
-		sendinfomsg("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )
-		logtofile("Remote ABI change detected: " +OSVER+ " -> " + REMOTEVER )
+	if OSVER != REMOTEVER {
+		sendinfomsg("Remote ABI change detected: " + OSVER + " -> " + REMOTEVER)
+		logtofile("Remote ABI change detected: " + OSVER + " -> " + REMOTEVER)
 		return true
 	}
 	return false
@@ -737,16 +736,16 @@ func updateloader(stagedir string) {
 	sendinfomsg("Updating Bootloader")
 	disks := getzpooldisks()
 	for i, _ := range disks {
-		if (isuefi(disks[i])) {
+		if isuefi(disks[i]) {
 			logtofile("Updating EFI boot-loader on: " + disks[i])
 			sendinfomsg("Updating EFI boot-loader on: " + disks[i])
-			if ( ! updateuefi(disks[i], stagedir) ) {
+			if !updateuefi(disks[i], stagedir) {
 				sendfatalmsg("Updating boot-loader failed!")
 			}
 		} else {
 			logtofile("Updating GPT boot-loader on: " + disks[i])
 			sendinfomsg("Updating GPT boot-loader on: " + disks[i])
-			if ( ! updategpt(disks[i], stagedir) ) {
+			if !updategpt(disks[i], stagedir) {
 				sendfatalmsg("Updating boot-loader failed!")
 			}
 		}
@@ -754,11 +753,11 @@ func updateloader(stagedir string) {
 }
 
 func updateuefi(disk string, stagedir string) bool {
-        derr := os.MkdirAll("/boot/efi", 0755)
-        if derr != nil {
+	derr := os.MkdirAll("/boot/efi", 0755)
+	if derr != nil {
 		sendinfomsg("ERROR: Failed mkdir /boot/efi")
 		copylogexit(derr, "Failed mkdir /boot/efi")
-        }
+	}
 
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
@@ -775,9 +774,9 @@ func updateuefi(disk string, stagedir string) bool {
 	// Iterate over buff and look for specific boot partition
 	for buff.Scan() {
 		line := strings.TrimSpace(buff.Text())
-		if ( strings.Contains(line, " efi ") ) {
+		if strings.Contains(line, " efi ") {
 			linearray := strings.Fields(line)
-			if ( len(linearray) < 3) {
+			if len(linearray) < 3 {
 				sendinfomsg("ERROR: Unable to locate EFI partition")
 				logtofile("Unable to locate EFI partition..." + string(line))
 				return false
@@ -785,7 +784,7 @@ func updateuefi(disk string, stagedir string) bool {
 			part := linearray[2]
 
 			// Mount the UEFI partition
-			bcmd := exec.Command("mount", "-t", "msdosfs", "/dev/" + disk + "p" +  part, "/boot/efi")
+			bcmd := exec.Command("mount", "-t", "msdosfs", "/dev/"+disk+"p"+part, "/boot/efi")
 			berr := bcmd.Run()
 			if berr != nil {
 				sendinfomsg("ERROR: Unable to mount EFI partition")
@@ -795,12 +794,12 @@ func updateuefi(disk string, stagedir string) bool {
 
 			// Copy the new UEFI file over
 			var tgt string
-			if _, err := os.Stat("/boot/efi/efi/boot/bootx64-trueos.efi") ; os.IsNotExist(err) {
+			if _, err := os.Stat("/boot/efi/efi/boot/bootx64-trueos.efi"); os.IsNotExist(err) {
 				tgt = "/boot/efi/efi/boot/bootx64-trueos.efi"
 			} else {
 				tgt = "/boot/efi/efi/boot/bootx64.efi"
 			}
-			cmd := exec.Command("cp", stagedir + "/boot/loader.efi", tgt)
+			cmd := exec.Command("cp", stagedir+"/boot/loader.efi", tgt)
 			cerr := cmd.Run()
 			if cerr != nil {
 				sendinfomsg("ERROR: Unable to copy efi file " + tgt)
@@ -843,15 +842,15 @@ func updategpt(disk string, stagedir string) bool {
 	// Iterate over buff and look for specific boot partition
 	for buff.Scan() {
 		line := strings.TrimSpace(buff.Text())
-		if ( strings.Contains(line, " freebsd-boot ") ) {
+		if strings.Contains(line, " freebsd-boot ") {
 			linearray := strings.Fields(line)
-			if ( len(linearray) < 3) {
+			if len(linearray) < 3 {
 				sendinfomsg("ERROR: Failed to locate GPT boot partition...")
 				logtofile("Unable to locate GPT boot partition..." + string(line))
 				return false
 			}
 			part := linearray[2]
-			bcmd := exec.Command("gpart", "bootcode", "-b", stagedir + "/boot/pmbr", "-p", stagedir + "/boot/gptzfsboot", "-i", part, disk)
+			bcmd := exec.Command("gpart", "bootcode", "-b", stagedir+"/boot/pmbr", "-p", stagedir+"/boot/gptzfsboot", "-i", part, disk)
 			berr := bcmd.Run()
 			if berr != nil {
 				sendinfomsg("Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " + stagedir + "/boot/gptzfsboot -i " + part + " " + disk)
@@ -880,10 +879,10 @@ func isuefi(disk string) bool {
 	// Iterate over buff and look for disk matches
 	for buff.Scan() {
 		line := buff.Text()
-		if ( strings.Contains(line, " efi ") ) {
+		if strings.Contains(line, " efi ") {
 			return true
 		}
-		if ( strings.Contains(line, "freebsd-boot") ) {
+		if strings.Contains(line, "freebsd-boot") {
 			return false
 		}
 	}
@@ -894,14 +893,14 @@ func getberoot() string {
 	// Get the current BE root
 	shellcmd := "mount | awk '/ \\/ / {print $1}'"
 	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
-	if ( cmderr != nil ) {
+	if cmderr != nil {
 		log.Fatal("Failed determining ZFS root")
 	}
 	currentbe := output
-        linearray := strings.Split(string(currentbe), "/")
-        if ( len(linearray) < 2) {
+	linearray := strings.Split(string(currentbe), "/")
+	if len(linearray) < 2 {
 		log.Fatal("Invalid beroot: " + string(currentbe))
-        }
+	}
 	beroot := linearray[0] + "/" + linearray[1]
 	return beroot
 }
@@ -910,14 +909,14 @@ func getcurrentbe() string {
 	// Get the current BE root
 	shellcmd := "mount | awk '/ \\/ / {print $1}'"
 	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
-	if ( cmderr != nil ) {
+	if cmderr != nil {
 		log.Fatal("Failed determining ZFS root")
 	}
 	currentbe := output
-        linearray := strings.Split(string(currentbe), "/")
-        if ( len(linearray) < 2) {
+	linearray := strings.Split(string(currentbe), "/")
+	if len(linearray) < 2 {
 		log.Fatal("Invalid beroot: " + string(currentbe))
-        }
+	}
 	be := linearray[2]
 	return be
 }
@@ -926,14 +925,14 @@ func getzfspool() string {
 	// Get the current BE root
 	shellcmd := "mount | awk '/ \\/ / {print $1}'"
 	output, cmderr := exec.Command("/bin/sh", "-c", shellcmd).Output()
-	if ( cmderr != nil ) {
+	if cmderr != nil {
 		log.Fatal("Failed determining ZFS root")
 	}
 	currentbe := output
-        linearray := strings.Split(string(currentbe), "/")
-        if ( len(linearray) < 2) {
+	linearray := strings.Split(string(currentbe), "/")
+	if len(linearray) < 2 {
 		log.Fatal("Invalid beroot: " + string(currentbe))
-        }
+	}
 	return linearray[0]
 }
 
@@ -941,25 +940,25 @@ func getzpooldisks() []string {
 	var diskarr []string
 	zpool := getzfspool()
 	kernout, kerr := syscall.Sysctl("kern.disks")
-	if ( kerr != nil ) {
+	if kerr != nil {
 		log.Fatal(kerr)
 	}
 	kerndisks := strings.Split(string(kernout), " ")
 	for i, _ := range kerndisks {
 		// Yes, CD's show up in this output..
-		if ( strings.Index(kerndisks[i], "cd") == 0) {
+		if strings.Index(kerndisks[i], "cd") == 0 {
 			continue
 		}
 		// Get a list of uuids for the partitions on this disk
 		duuids := getdiskuuids(kerndisks[i])
 
 		// Validate this disk is in the default zpool
-		if ( ! diskisinpool(kerndisks[i], duuids, zpool) ) {
+		if !diskisinpool(kerndisks[i], duuids, zpool) {
 			continue
 		}
 		logtofile("Updating boot-loader on disk: " + kerndisks[i])
 		diskarr = append(diskarr, kerndisks[i])
-        }
+	}
 	return diskarr
 }
 
@@ -977,21 +976,21 @@ func diskisinpool(disk string, uuids []string, zpool string) bool {
 	// Iterate over buff and look for disk matches
 	for buff.Scan() {
 		line := buff.Text()
-		if ( strings.Contains(line, " " + disk + " " ) ) {
+		if strings.Contains(line, " "+disk+" ") {
 			return true
 		}
-		if ( strings.Contains(line, " " + disk + "p") ) {
+		if strings.Contains(line, " "+disk+"p") {
 			return true
 		}
 		for i, _ := range uuids {
-			if ( strings.Contains(line, " gptid/" + uuids[i] ) ) {
+			if strings.Contains(line, " gptid/"+uuids[i]) {
 				return true
 			}
 		}
 	}
-        if err := cmd.Wait(); err != nil {
-              log.Fatal(err)
-        }
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
 	return false
 }
 
@@ -1013,10 +1012,10 @@ func getdiskuuids(disk string) []string {
 		line := buff.Text()
 		uuidarr = append(uuidarr, line)
 	}
-        // Pkg returns 0 on sucess
-        if err := cmd.Wait(); err != nil {
-              log.Fatal(err)
-        }
+	// Pkg returns 0 on sucess
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
+	}
 
 	return uuidarr
 }

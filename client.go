@@ -1,14 +1,13 @@
 package main
 
 import (
-        "encoding/json"
-        "fmt"
-        "log"
-        "os"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
 
-        "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 )
-
 
 // Show us our list of trains
 func printtrains(trains []TrainDef, deftrain string) {
@@ -18,7 +17,7 @@ func printtrains(trains []TrainDef, deftrain string) {
 	fmt.Println("------------------------------------------------------------------")
 	for i, _ := range trains {
 		fmt.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
-		if ( trains[i].Deprecated ) {
+		if trains[i].Deprecated {
 			fmt.Printf(" [Deprecated]")
 		}
 		for j, _ := range trains[i].Tags {
@@ -29,7 +28,7 @@ func printtrains(trains []TrainDef, deftrain string) {
 }
 
 func parsejsonmsg(message []byte) int {
-	if ( ! json.Valid(message) ) {
+	if !json.Valid(message) {
 		log.Println("ERROR: Invalid JSON in return")
 		return 1
 	}
@@ -48,7 +47,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var haveupdates bool = s.Updates
-		if ( haveupdates ) {
+		if haveupdates {
 			fmt.Println("The following updates are available")
 			printupdatedetails(s.Details)
 			os.Exit(10)
@@ -80,8 +79,8 @@ func parsejsonmsg(message []byte) int {
 	case "listtrains":
 		var s struct {
 			Envelope
-			Trains []TrainDef `json:"trains"`
-			Default string `json:"default"`
+			Trains  []TrainDef `json:"trains"`
+			Default string     `json:"default"`
 		}
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
@@ -144,7 +143,6 @@ func startcheck() {
 	done := make(chan struct{})
 	defer close(done)
 
-
 	// Wait for messages back
 	for {
 		_, message, err := c.ReadMessage()
@@ -158,9 +156,9 @@ func startcheck() {
 }
 
 func updatebootloader() {
-        data := &SendReq{
-                Method:	"updatebootloader",
-        }
+	data := &SendReq{
+		Method: "updatebootloader",
+	}
 
 	msg, err := json.Marshal(data)
 	if err != nil {
@@ -174,7 +172,6 @@ func updatebootloader() {
 
 	done := make(chan struct{})
 	defer close(done)
-
 
 	// Wait for messages back
 	for {
@@ -189,9 +186,9 @@ func updatebootloader() {
 }
 
 func listtrains() {
-        data := &SendReq{
-                Method:	"listtrains",
-        }
+	data := &SendReq{
+		Method: "listtrains",
+	}
 
 	msg, err := json.Marshal(data)
 	if err != nil {
@@ -205,7 +202,6 @@ func listtrains() {
 
 	done := make(chan struct{})
 	defer close(done)
-
 
 	// Wait for messages back
 	for {
@@ -220,10 +216,10 @@ func listtrains() {
 }
 
 func settrain() {
-        data := &SendReq{
-                Method:	"settrain",
-                Train:	changetrainflag,
-        }
+	data := &SendReq{
+		Method: "settrain",
+		Train:  changetrainflag,
+	}
 
 	msg, err := json.Marshal(data)
 	if err != nil {
@@ -238,7 +234,6 @@ func settrain() {
 	done := make(chan struct{})
 	defer close(done)
 
-
 	// Wait for messages back
 	for {
 		_, message, err := c.ReadMessage()
@@ -250,7 +245,6 @@ func settrain() {
 		parsejsonmsg(message)
 	}
 }
-
 
 func printupdatedetails(details UpdateInfo) {
 
@@ -283,14 +277,14 @@ func printupdatedetails(details UpdateInfo) {
 }
 
 func startupdate() {
-        data := &SendReq{
-                Method:	"update",
-                Fullupdate: fullupdateflag,
-                Cachedir: cachedirflag,
-                Bename:   benameflag,
-                Disablebs:   disablebsflag,
-                Updatefile:   updatefileflag,
-        }
+	data := &SendReq{
+		Method:     "update",
+		Fullupdate: fullupdateflag,
+		Cachedir:   cachedirflag,
+		Bename:     benameflag,
+		Disablebs:  disablebsflag,
+		Updatefile: updatefileflag,
+	}
 
 	msg, err := json.Marshal(data)
 	if err != nil {
@@ -304,7 +298,6 @@ func startupdate() {
 
 	done := make(chan struct{})
 	defer close(done)
-
 
 	// Wait for messages back
 	for {

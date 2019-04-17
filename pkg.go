@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -28,7 +28,7 @@ func getremoteosver() (string, error) {
 	}
 	//fmt.Println(allText)
 	if err := cmd.Wait(); err != nil {
-		exitcleanup(err, "Failed getting remote version of ports-mgmt/pkg: " + strings.Join(allText, "\n"))
+		exitcleanup(err, "Failed getting remote version of ports-mgmt/pkg: "+strings.Join(allText, "\n"))
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(allText, "\n")))
@@ -40,7 +40,7 @@ func getremoteosver() (string, error) {
 		if len(line) == 0 {
 			continue
 		}
-		if ( strings.Contains(line, "FreeBSD_version=")) {
+		if strings.Contains(line, "FreeBSD_version=") {
 			strarray := strings.Split(line, "=")
 			return string(strarray[1]), nil
 		}
@@ -51,12 +51,12 @@ func getremoteosver() (string, error) {
 func mountofflineupdate() {
 
 	// If offline update is already mounted, return
-	if ( localmddev != "" ) {
+	if localmddev != "" {
 		logtofile("Using already mounted: " + updatefileflag)
 		return
 	}
 
-	if _, err := os.Stat(updatefileflag) ; os.IsNotExist(err) {
+	if _, err := os.Stat(updatefileflag); os.IsNotExist(err) {
 		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " does not exist!")
 		closews()
 		os.Exit(1)
@@ -65,8 +65,8 @@ func mountofflineupdate() {
 	logtofile("Mounting offline update: " + updatefileflag)
 
 	output, cmderr := exec.Command("mdconfig", "-a", "-t", "vnode", "-f", updatefileflag).Output()
-	if ( cmderr != nil ) {
-		exitcleanup(cmderr, "Failed mdconfig of offline update file: " + updatefileflag)
+	if cmderr != nil {
+		exitcleanup(cmderr, "Failed mdconfig of offline update file: "+updatefileflag)
 	}
 
 	// Set the mddevice we have mounted
@@ -82,43 +82,43 @@ func mountofflineupdate() {
 	cmd.Run()
 
 	// Mount the image RO
-        cmd = exec.Command("mount", "-o", "ro", "/dev/" + localmddev, localimgmnt)
+	cmd = exec.Command("mount", "-o", "ro", "/dev/"+localmddev, localimgmnt)
 	err := cmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		// We failed to mount, cleanup the memory device
 		cmd := exec.Command("mdconfig", "-d", "-u", localmddev)
 		cmd.Run()
 		sendfatalmsg("ERROR: Offline update file " + updatefileflag + " cannot be mounted")
-		localmddev=""
+		localmddev = ""
 		closews()
 		os.Exit(1)
 	}
 }
 
 func destroymddev() {
-	if ( updatefileflag == "" ) {
+	if updatefileflag == "" {
 		return
 	}
 	cmd := exec.Command("umount", "-f", localimgmnt)
 	cmd.Run()
-        cmd = exec.Command("mdconfig", "-d", "-u", localmddev)
+	cmd = exec.Command("mdconfig", "-d", "-u", localmddev)
 	cmd.Run()
-	localmddev=""
+	localmddev = ""
 }
 
 func mkreposfile(prefix string, pkgdb string) string {
 	reposdir := "REPOS_DIR: [ \"" + pkgdb + "/repos\", ]"
-	rerr := os.MkdirAll(prefix + pkgdb + "/repos", 0755)
+	rerr := os.MkdirAll(prefix+pkgdb+"/repos", 0755)
 	if rerr != nil {
 		log.Fatal(rerr)
 	}
 	// Ugly I know, can probably be re-factored later
 	pkgdata := `Update: {
 url: file:///` + localimgmnt
-	if ( updatekeyflag != "" ) {
+	if updatekeyflag != "" {
 		pkgdata += `
   signature_type: "pubkey"
-  pubkey: "`+ updatekeyflag + `
+  pubkey: "` + updatekeyflag + `
 `
 	} else {
 		pkgdata += `
@@ -128,30 +128,30 @@ url: file:///` + localimgmnt
 	pkgdata += `
   enabled: yes
 }`
-	ioutil.WriteFile(prefix + pkgdb + "/repos/repo.conf", []byte(pkgdata), 0644)
+	ioutil.WriteFile(prefix+pkgdb+"/repos/repo.conf", []byte(pkgdata), 0644)
 	return reposdir
 }
 
 func preparepkgconfig(altabi string) {
 	derr := os.MkdirAll(localpkgdb, 0755)
 	if derr != nil {
-		exitcleanup(derr, "Failed making directory: " + localpkgdb)
+		exitcleanup(derr, "Failed making directory: "+localpkgdb)
 	}
 	cerr := os.MkdirAll(localcachedir, 0755)
 	if cerr != nil {
-		exitcleanup(cerr, "Failed making directory: " + localcachedir)
+		exitcleanup(cerr, "Failed making directory: "+localcachedir)
 	}
 
 	// If we have an offline file update, lets set that up now
 	var reposdir string
-	if ( updatefileflag != "" ) {
+	if updatefileflag != "" {
 		mountofflineupdate()
 		reposdir = mkreposfile("", localpkgdb)
 	}
 
 	// Check if we have an alternative ABI to specify
-	if ( altabi != "" ) {
-		abioverride="ABI: " + altabi
+	if altabi != "" {
+		abioverride = "ABI: " + altabi
 	}
 
 	// Copy over the existing local database
@@ -159,7 +159,7 @@ func preparepkgconfig(altabi string) {
 	destFolder := localpkgdb + "/local.sqlite"
 	cpCmd := exec.Command("cp", "-f", srcFolder, destFolder)
 	err := cpCmd.Run()
-	if ( err != nil ) {
+	if err != nil {
 		exitcleanup(err, "Failed copy of /var/db/pkg/local.sqlite")
 	}
 
@@ -174,7 +174,7 @@ IGNORE_OSVERSION: YES
 
 func updatepkgdb(newabi string) {
 	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "update", "-f")
-	if ( newabi == "" ) {
+	if newabi == "" {
 		sendinfomsg("Updating package remote database")
 	} else {
 		sendinfomsg("Updating package remote database with new ABI: " + newabi)
@@ -192,12 +192,12 @@ func updatepkgdb(newabi string) {
 	abierr := false
 	for buff.Scan() {
 		line := buff.Text()
-		if ( strings.Contains(line, "wrong ABI:") && newabi == "" ) {
+		if strings.Contains(line, "wrong ABI:") && newabi == "" {
 			words := strings.Split(string(line), " ")
-			if ( len(words) < 8 ) {
+			if len(words) < 8 {
 				logtofile("Unable to determine new ABI")
 				log.Fatal("Unable to determine new ABI")
-		        }
+			}
 			abierr = true
 			//fmt.Println("New ABI: " + words[8])
 			// Try updating with the new ABI now
@@ -207,19 +207,19 @@ func updatepkgdb(newabi string) {
 		allText = append(allText, line+"\n")
 	}
 	if err := cmd.Wait(); err != nil {
-		if ( ! abierr ) {
+		if !abierr {
 			fmt.Println(allText)
 			logtofile("Failed running pkg update: " + strings.Join(allText, "\n"))
-			exitcleanup(err, "Failed running pkg update:" + strings.Join(allText, "\n"))
+			exitcleanup(err, "Failed running pkg update:"+strings.Join(allText, "\n"))
 		}
 	}
 }
 
 func exitcleanup(err error, text string) {
-        // If we are using standalone update, cleanup
-        if ( updatefileflag != "" && localmddev != "" ) {
-                destroymddev()
-        }
+	// If we are using standalone update, cleanup
+	if updatefileflag != "" && localmddev != "" {
+		destroymddev()
+	}
 	log.Println("ERROR: " + text)
 	log.Fatal(err)
 }

@@ -16,11 +16,11 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	var line string
 
 	// Init the structure
-	details := UpdateInfo{ }
-	detailsNew := NewPkg{ }
-	detailsUp := UpPkg{ }
-	detailsRi := RiPkg{ }
-	detailsDel := DelPkg{ }
+	details := UpdateInfo{}
+	detailsNew := NewPkg{}
+	detailsUp := UpPkg{}
+	detailsRi := RiPkg{}
+	detailsDel := DelPkg{}
 
 	scanner := bufio.NewScanner(strings.NewReader(strings.Join(uptext, "\n")))
 	for scanner.Scan() {
@@ -31,79 +31,79 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 		if len(line) == 0 {
 			continue
 		}
-		if ( strings.Contains(line, "INSTALLED:")) {
+		if strings.Contains(line, "INSTALLED:") {
 			stage = "NEW"
 			continue
 		}
-		if ( strings.Contains(line, "UPGRADED:")) {
+		if strings.Contains(line, "UPGRADED:") {
 			stage = "UPGRADE"
 			continue
 		}
-		if ( strings.Contains(line, "REMOVED:")) {
+		if strings.Contains(line, "REMOVED:") {
 			stage = "REMOVE"
 			continue
 		}
-		if ( strings.Contains(line, "REINSTALLED:")) {
+		if strings.Contains(line, "REINSTALLED:") {
 			stage = "REINSTALLED"
 			continue
 		}
-		if ( strings.Contains(line, " to be installed:")) {
+		if strings.Contains(line, " to be installed:") {
 			stage = ""
 			continue
 		}
-		if ( strings.Contains(line, " to be upgraded:")) {
+		if strings.Contains(line, " to be upgraded:") {
 			stage = ""
 			continue
 		}
-		if ( strings.Contains(line, " to be REINSTALLED:")) {
+		if strings.Contains(line, " to be REINSTALLED:") {
 			stage = ""
 			continue
 		}
-//		fmt.Printf(line + "\n")
-//		fmt.Printf("Fields are: %q\n", strings.Fields(line))
+		//		fmt.Printf(line + "\n")
+		//		fmt.Printf("Fields are: %q\n", strings.Fields(line))
 		switch stage {
 		case "NEW":
-			if ( strings.Contains(line, ": ")) {
+			if strings.Contains(line, ": ") {
 				linearray := strings.Split(line, " ")
-				if ( len(linearray) < 2) {
+				if len(linearray) < 2 {
 					continue
 				}
-				detailsNew.Name=linearray[0]
-				detailsNew.Version=linearray[1]
+				detailsNew.Name = linearray[0]
+				detailsNew.Version = linearray[1]
 				details.New = append(details.New, detailsNew)
 				continue
 			}
 		case "UPGRADE":
-			if ( strings.Contains(line, " -> ")) {
+			if strings.Contains(line, " -> ") {
 				linearray := strings.Split(line, " ")
-				if ( len(linearray) < 4) {
+				if len(linearray) < 4 {
 					continue
 				}
-				detailsUp.Name=strings.Replace(linearray[0], ":", "", -1)
-				detailsUp.OldVersion=linearray[1]
-				detailsUp.NewVersion=linearray[3]
+				detailsUp.Name = strings.Replace(linearray[0], ":", "", -1)
+				detailsUp.OldVersion = linearray[1]
+				detailsUp.NewVersion = linearray[3]
 				details.Up = append(details.Up, detailsUp)
 				continue
 			}
 		case "REINSTALLED":
-			if ( strings.Contains(line, " (")) {
+			if strings.Contains(line, " (") {
 				linearray := strings.Split(line, " (")
-				if ( len(linearray) < 2) {
+				if len(linearray) < 2 {
 					continue
 				}
-				detailsRi.Name=linearray[0]
-				detailsRi.Reason=strings.Replace(linearray[1], ")", "", -1)
+				detailsRi.Name = linearray[0]
+				detailsRi.Reason = strings.Replace(linearray[1], ")", "", -1)
 				details.Ri = append(details.Ri, detailsRi)
 				continue
 			}
 		case "REMOVE":
-			if ( strings.Contains(line, ": ")) {
+			if strings.Contains(line, ": ") {
 				linearray := strings.Split(line, " ")
-				if ( len(linearray) < 2) {
+				if len(linearray) < 2 {
 					continue
 				}
-				detailsDel.Name=linearray[0]
-				detailsDel.Version=linearray[1]
+				detailsDel.Name = linearray[0]
+				detailsDel.Version = linearray[1]
 				details.Del = append(details.Del, detailsDel)
 				continue
 			}
@@ -117,10 +117,10 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	details.KernelUp = false
 	log.Println("Kernel: " + kernel)
 	for i, _ := range details.Up {
-		if ( details.Up[i].Name == kernel) {
+		if details.Up[i].Name == kernel {
 			// Set JSON details on the kernel update
 			details.KernelUp = true
-                        break
+			break
 		}
 	}
 
@@ -128,15 +128,15 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 	details.SysUpPkg = ""
 	details.SysUp = false
 	for i, _ := range details.Up {
-		if ( details.Up[i].Name == "sysup") {
+		if details.Up[i].Name == "sysup" {
 			// Set JSON details on the sysup package
 			details.SysUp = true
-                        break
+			break
 		}
 	}
 
 	// If we have a remote ABI change we count that as a new kernel change also
-        if ( haveosverchange() ) {
+	if haveosverchange() {
 		details.KernelUp = true
 	}
 
@@ -145,7 +145,7 @@ func parseupdatedata(uptext []string) *UpdateInfo {
 }
 
 func updatedryrun(sendupdate bool) (*UpdateInfo, bool, error) {
-	details := UpdateInfo{ }
+	details := UpdateInfo{}
 	updetails := &details
 
 	cmd := exec.Command(PKGBIN, "-C", localpkgconf, "upgrade", "-n")
@@ -172,8 +172,8 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool, error) {
 	//	log.Fatal(err)
 	//}
 
-	haveupdates := ! strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
-	if ( haveupdates ) {
+	haveupdates := !strings.Contains(strings.Join((allText), "\n"), "Your packages are up to date")
+	if haveupdates {
 		updetails = parseupdatedata(allText)
 	}
 
@@ -182,15 +182,15 @@ func updatedryrun(sendupdate bool) (*UpdateInfo, bool, error) {
 
 func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 	type JSONReply struct {
-		Method string `json:"method"`
-		Updates  bool `json:"updates"`
-		Details  *UpdateInfo `json:"details"`
+		Method  string      `json:"method"`
+		Updates bool        `json:"updates"`
+		Details *UpdateInfo `json:"details"`
 	}
 
 	data := &JSONReply{
-		Method:     "check",
-		Updates:   haveupdates,
-		Details:   updetails,
+		Method:  "check",
+		Updates: haveupdates,
+		Details: updetails,
 	}
 	msg, err := json.Marshal(data)
 	if err != nil {
@@ -204,13 +204,13 @@ func sendupdatedetails(haveupdates bool, updetails *UpdateInfo) {
 func checkforupdates() {
 	preparepkgconfig("")
 	updatepkgdb("")
-	updetails, haveupdates, uerr:= updatedryrun(true)
-	if ( uerr != nil ) {
-                destroymddev()
+	updetails, haveupdates, uerr := updatedryrun(true)
+	if uerr != nil {
+		destroymddev()
 		return
 	}
 
-        // If we are using standalone update, cleanup
+	// If we are using standalone update, cleanup
 	destroymddev()
 
 	sendupdatedetails(haveupdates, updetails)
