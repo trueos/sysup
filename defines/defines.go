@@ -7,9 +7,9 @@ import (
 
 var Updater = websocket.Upgrader{} // use default options
 // Start our client connection to the WS server
-var (
-	Conns *websocket.Conn
-)
+var WSServer *websocket.Conn
+var WSClient *websocket.Conn
+
 var pkgflags string
 
 // What is this tool called?
@@ -152,6 +152,20 @@ func init() {
 		"Address to have the websocket server listen on",
 	)
 	flag.Parse()
+}
+
+func SetLocs() {
+	// Check if the user provided their own location to store temp data
+	if CacheDirFlag == "" {
+		return
+	}
+
+	SysUpDb = CacheDirFlag
+	PkgDb = SysUpDb + "/pkgdb"
+	ImgMnt = SysUpDb + "/mnt"
+	PkgConf = SysUpDb + "/pkg.conf"
+	CacheDir = SysUpDb + "/cache"
+
 }
 
 // Define all our JSON structures

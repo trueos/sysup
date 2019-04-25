@@ -1,8 +1,7 @@
-package main
+package client
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/trueos/sysup/defines"
 	"log"
@@ -11,19 +10,21 @@ import (
 
 // Show us our list of trains
 func printtrains(trains []defines.TrainDef, deftrain string) {
-	fmt.Println("Current Train: " + deftrain)
-	fmt.Println("")
-	fmt.Println("The following trains are available:")
-	fmt.Println("------------------------------------------------------------------")
+	log.Println("Current Train: " + deftrain)
+	log.Println("")
+	log.Println("The following trains are available:")
+	log.Println(
+		"------------------------------------------------------------------",
+	)
 	for i, _ := range trains {
-		fmt.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
+		log.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
 		if trains[i].Deprecated {
-			fmt.Printf(" [Deprecated]")
+			log.Printf(" [Deprecated]")
 		}
 		for j, _ := range trains[i].Tags {
-			fmt.Printf(" [%s]", trains[i].Tags[j])
+			log.Printf(" [%s]", trains[i].Tags[j])
 		}
-		fmt.Printf("\n")
+		log.Printf("\n")
 	}
 }
 
@@ -48,11 +49,11 @@ func parsejsonmsg(message []byte) int {
 		}
 		var haveupdates bool = s.Updates
 		if haveupdates {
-			fmt.Println("The following updates are available")
+			log.Println("The following updates are available")
 			printupdatedetails(s.Details)
 			os.Exit(10)
 		} else {
-			fmt.Println("No updates available")
+			log.Println("No updates available")
 			os.Exit(0)
 		}
 	case "info":
@@ -64,7 +65,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		fmt.Println(infomsg)
+		log.Println(infomsg)
 	case "updatebootloader":
 		var s struct {
 			defines.Envelope
@@ -74,7 +75,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		fmt.Println(infomsg)
+		log.Println(infomsg)
 		os.Exit(0)
 	case "listtrains":
 		var s struct {
@@ -106,7 +107,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		fmt.Println(infomsg)
+		log.Println(infomsg)
 		os.Exit(0)
 	case "fatal":
 		var s struct {
@@ -126,7 +127,7 @@ func parsejsonmsg(message []byte) int {
 	return 0
 }
 
-func startcheck() {
+func StartCheck() {
 	data := map[string]string{
 		"method": "check",
 	}
@@ -134,8 +135,8 @@ func startcheck() {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	//fmt.Println("JSON Message: ", string(msg))
-	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	//log.Println("JSON Message: ", string(msg))
+	send_err := defines.WSClient.WriteMessage(websocket.TextMessage, msg)
 	if send_err != nil {
 		log.Fatal("Failed talking to WS backend:", send_err)
 	}
@@ -145,7 +146,7 @@ func startcheck() {
 
 	// Wait for messages back
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := defines.WSClient.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			return
@@ -155,7 +156,7 @@ func startcheck() {
 	}
 }
 
-func updatebootloader() {
+func UpdateBootLoader() {
 	data := &defines.SendReq{
 		Method: "updatebootloader",
 	}
@@ -164,8 +165,8 @@ func updatebootloader() {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	//fmt.Println("JSON Message: ", string(msg))
-	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	//log.Println("JSON Message: ", string(msg))
+	send_err := defines.WSClient.WriteMessage(websocket.TextMessage, msg)
 	if send_err != nil {
 		log.Fatal("Failed talking to WS backend:", send_err)
 	}
@@ -175,7 +176,7 @@ func updatebootloader() {
 
 	// Wait for messages back
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := defines.WSClient.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			return
@@ -185,7 +186,7 @@ func updatebootloader() {
 	}
 }
 
-func listtrains() {
+func ListTrains() {
 	data := &defines.SendReq{
 		Method: "listtrains",
 	}
@@ -194,8 +195,8 @@ func listtrains() {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	//fmt.Println("JSON Message: ", string(msg))
-	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	//log.Println("JSON Message: ", string(msg))
+	send_err := defines.WSClient.WriteMessage(websocket.TextMessage, msg)
 	if send_err != nil {
 		log.Fatal("Failed talking to WS backend:", send_err)
 	}
@@ -205,7 +206,7 @@ func listtrains() {
 
 	// Wait for messages back
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := defines.WSClient.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			return
@@ -215,7 +216,7 @@ func listtrains() {
 	}
 }
 
-func settrain() {
+func SetTrain() {
 	data := &defines.SendReq{
 		Method: "settrain",
 		Train:  defines.ChangeTrainFlag,
@@ -225,8 +226,8 @@ func settrain() {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	//fmt.Println("JSON Message: ", string(msg))
-	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	//log.Println("JSON Message: ", string(msg))
+	send_err := defines.WSClient.WriteMessage(websocket.TextMessage, msg)
 	if send_err != nil {
 		log.Fatal("Failed talking to WS backend:", send_err)
 	}
@@ -236,7 +237,7 @@ func settrain() {
 
 	// Wait for messages back
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := defines.WSClient.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			return
@@ -248,35 +249,38 @@ func settrain() {
 
 func printupdatedetails(details defines.UpdateInfo) {
 
-	fmt.Println("The following packages will be updated:")
-	fmt.Println("----------------------------------------------------")
+	log.Println("The following packages will be updated:")
+	log.Println("----------------------------------------------------")
 	for i, _ := range details.Up {
-		fmt.Println("   " + details.Up[i].Name + " " + details.Up[i].OldVersion + " -> " + details.Up[i].NewVersion)
+		log.Println(
+			"   " + details.Up[i].Name + " " + details.Up[i].OldVersion +
+				" -> " + details.Up[i].NewVersion,
+		)
 	}
 
-	fmt.Println()
-	fmt.Println("The following packages will be installed:")
-	fmt.Println("----------------------------------------------------")
+	log.Println()
+	log.Println("The following packages will be installed:")
+	log.Println("----------------------------------------------------")
 	for i, _ := range details.New {
-		fmt.Println("   " + details.New[i].Name + " " + details.New[i].Version)
+		log.Println("   " + details.New[i].Name + " " + details.New[i].Version)
 	}
 
-	fmt.Println()
-	fmt.Println("The following packages will be reinstalled:")
-	fmt.Println("----------------------------------------------------")
+	log.Println()
+	log.Println("The following packages will be reinstalled:")
+	log.Println("----------------------------------------------------")
 	for i, _ := range details.Ri {
-		fmt.Println("   " + details.Ri[i].Name + " " + details.Ri[i].Reason)
+		log.Println("   " + details.Ri[i].Name + " " + details.Ri[i].Reason)
 	}
 
-	fmt.Println()
-	fmt.Println("The following packages will be removed:")
-	fmt.Println("----------------------------------------------------")
+	log.Println()
+	log.Println("The following packages will be removed:")
+	log.Println("----------------------------------------------------")
 	for i, _ := range details.Del {
-		fmt.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
+		log.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
 	}
 }
 
-func startupdate() {
+func StartUpdate() {
 	data := &defines.SendReq{
 		Method:     "update",
 		Fullupdate: defines.FullUpdateFlag,
@@ -290,8 +294,8 @@ func startupdate() {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	//fmt.Println("JSON Message: ", string(msg))
-	send_err := c.WriteMessage(websocket.TextMessage, msg)
+	//log.Println("JSON Message: ", string(msg))
+	send_err := defines.WSClient.WriteMessage(websocket.TextMessage, msg)
 	if send_err != nil {
 		log.Fatal("Failed talking to WS backend:", send_err)
 	}
@@ -301,7 +305,7 @@ func startupdate() {
 
 	// Wait for messages back
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := defines.WSClient.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			return
