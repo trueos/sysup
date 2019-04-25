@@ -86,7 +86,6 @@ func SendFatalMsg(info string) {
 
 // Called when we want to signal that its time to close the WS connection
 func CloseWs() {
-
 	log.Println("Closing WS connection")
 	log.Printf("closing ws")
 	defer defines.WSServer.Close()
