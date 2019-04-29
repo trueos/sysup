@@ -1,44 +1,25 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"os/signal"
 	"os/user"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/trueos/sysup/client"
 	"github.com/trueos/sysup/defines"
+	"github.com/trueos/sysup/pkg"
+	"github.com/trueos/sysup/trains"
+	"github.com/trueos/sysup/update"
+	"github.com/trueos/sysup/ws"
 )
-
-func rotatelog() {
-	if _, err := os.Stat(defines.LogFile); os.IsNotExist(err) {
-		return
-	}
-	cmd := exec.Command("mv", defines.LogFile, defines.LogFile+".previous")
-	cmd.Run()
-}
-
-func logtofile(info string) {
-	f, err := os.OpenFile(
-		defines.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if _, err := f.Write([]byte(info + "\n")); err != nil {
-		log.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
-		log.Fatal(err)
-	}
-}
 
 // Start the websocket server
 func startws() {
@@ -46,16 +27,12 @@ func startws() {
 	http.HandleFunc("/ws", readws)
 	log.Println("Listening on", defines.WebsocketAddr)
 
-	//Make this non-fatal so it can be run every time (will fail *instantly* if a websocket is already running on that address)
+	//Make this non-fatal so it can be run every time (will fail *instantly*
+	//if a websocket is already running on that address)
 	http.ListenAndServe(defines.WebsocketAddr, nil)
 
 	//log.Fatal(http.ListenAndServe(*addr, nil))
 }
-
-// Start our client connection to the WS server
-var (
-	c *websocket.Conn
-)
 
 func connectws() {
 	//Try (and fail as needed) to get the websocket started
@@ -72,8 +49,11 @@ func connectws() {
 	err := errors.New("")
 	var connected bool = false
 	for attempt := 0; attempt < 5; attempt++ {
-		//Note: This can take up to 45 seconds to timeout if the websocket server is not running
-		c, _, err = websocket.DefaultDialer.Dial(u.String(), nil)
+		//Note: This can take up to 45 seconds to timeout if the websocket
+		//server is not running
+		defines.WSClient, _, err = websocket.DefaultDialer.Dial(
+			u.String(), nil,
+		)
 		if err == nil {
 			connected = true
 			break
@@ -86,48 +66,71 @@ func connectws() {
 	}
 }
 
-// Called when we want to signal that its time to close the WS connection
-func closews() {
-	log.Println("Closing WS connection")
-	log.Printf("closing ws")
-	defer c.Close()
-
-	// Cleanly close the connection by sending a close message and then
-	// waiting (with timeout) for the server to close the connection.
-	err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+// Parses the message and calls the responsible module
+func readws(w http.ResponseWriter, r *http.Request) {
+	var err error
+	defines.WSServer, err = defines.Updater.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("write close:", err)
+		log.Print("update:", err)
 		return
 	}
-	time.Sleep(10 * time.Millisecond)
+	defer defines.WSServer.Close()
+	for {
+		_, message, err := defines.WSServer.ReadMessage()
+		if err != nil {
+			log.Println("read:", err)
+			break
+		}
+		if !json.Valid(message) {
+			log.Println("INVALID JSON")
+			continue
+
+		}
+
+		// Start decoding the incoming JSON
+		var env defines.Envelope
+		if err := json.Unmarshal(message, &env); err != nil {
+			ws.SendInfoMsg("Invalid JSON received")
+			log.Println("Warning: Invalid JSON message received")
+			log.Println(err)
+		}
+		switch env.Method {
+		case "check":
+			pkg.CheckForUpdates()
+		case "listtrains":
+			trains.DoTrainList()
+		case "settrain":
+			trains.DoSetTrain(message)
+		case "update":
+			update.DoUpdate(message)
+		case "updatebootloader":
+			update.UpdateLoader("")
+			ws.SendBlMsg("Finished boot-loader process")
+		default:
+			log.Println("Uknown JSON Method:", env.Method)
+		}
+
+		// log.Printf("server-recv: %s", message)
+		//err = defines.WSServers.WriteMessage(mt, message)
+		//if err != nil {
+		//	log.Println("write:", err)
+		//	break
+		//}
+	}
 }
 
 func checkuid() {
 	user, err := user.Current()
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Failed getting user.Current()")
+		log.Println(err)
+		log.Println("Failed getting user.Current()")
 		os.Exit(1)
 		return
 	}
 	if user.Uid != "0" {
-		fmt.Println("ERROR: Must be run as root")
+		log.Println("ERROR: Must be run as root")
 		os.Exit(1)
 	}
-}
-
-func setlocs() {
-	// Check if the user provided their own location to store temp data
-	if defines.CacheDirFlag == "" {
-		return
-	}
-
-	defines.SysUpDb = defines.CacheDirFlag
-	defines.PkgDb = defines.SysUpDb + "/pkgdb"
-	defines.ImgMnt = defines.SysUpDb + "/mnt"
-	defines.PkgConf = defines.SysUpDb + "/pkg.conf"
-	defines.CacheDir = defines.SysUpDb + "/cache"
-
 }
 
 func main() {
@@ -138,7 +141,7 @@ func main() {
 	}
 
 	// Update any variable locations
-	setlocs()
+	defines.SetLocs()
 
 	// Capture any sigint
 	interrupt := make(chan os.Signal, 1)
@@ -153,36 +156,36 @@ func main() {
 
 	if defines.BootloaderFlag {
 		connectws()
-		updatebootloader()
-		closews()
+		client.UpdateBootLoader()
+		ws.CloseWs()
 		os.Exit(0)
 	}
 
 	if defines.ListTrainFlag {
 		connectws()
-		listtrains()
-		closews()
+		client.ListTrains()
+		ws.CloseWs()
 		os.Exit(0)
 	}
 
 	if defines.ChangeTrainFlag != "" {
 		connectws()
-		settrain()
-		closews()
+		client.SetTrain()
+		ws.CloseWs()
 		os.Exit(0)
 	}
 
 	if defines.CheckFlag {
 		connectws()
-		startcheck()
-		closews()
+		client.StartCheck()
+		ws.CloseWs()
 		os.Exit(0)
 	}
 
 	if defines.UpdateFlag {
 		connectws()
-		startupdate()
-		closews()
+		client.StartUpdate()
+		ws.CloseWs()
 		os.Exit(0)
 	}
 

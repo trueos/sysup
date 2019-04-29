@@ -1,4 +1,4 @@
-package main
+package trains
 
 import (
 	"bufio"
@@ -11,6 +11,7 @@ import (
 	"errors"
 	"github.com/gorilla/websocket"
 	"github.com/trueos/sysup/defines"
+	"github.com/trueos/sysup/ws"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -26,7 +27,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	s := defines.TrainsDef{}
 
 	if defines.TrainsUrl == "" {
-		sendfatalmsg(
+		ws.SendFatalMsg(
 			"No train URL defined in JSON configuration: " +
 				defines.ConfigJson,
 		)
@@ -36,7 +37,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	//sendinfomsg("Fetching trains configuration")
 	resp, err := http.Get(defines.TrainsUrl)
 	if err != nil {
-		sendfatalmsg("ERROR: Failed fetching " + defines.TrainsUrl)
+		ws.SendFatalMsg("ERROR: Failed fetching " + defines.TrainsUrl)
 		return s, errors.New("ERROR")
 	}
 
@@ -46,7 +47,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	// Load the file into memory
 	dat, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		sendfatalmsg("Failed reading train file!")
+		ws.SendFatalMsg("Failed reading train file!")
 		return s, errors.New("ERROR")
 	}
 
@@ -54,7 +55,9 @@ func loadtrains() (defines.TrainsDef, error) {
 	//sendinfomsg("Fetching trains signature")
 	sresp, serr := http.Get(defines.TrainsUrl + ".sha1")
 	if serr != nil {
-		sendfatalmsg("ERROR: Failed fetching " + defines.TrainsUrl + ".sha1")
+		ws.SendFatalMsg(
+			"ERROR: Failed fetching " + defines.TrainsUrl + ".sha1",
+		)
 		return s, errors.New("ERROR")
 	}
 
@@ -64,26 +67,26 @@ func loadtrains() (defines.TrainsDef, error) {
 	// Load the file into memory
 	sdat, err := ioutil.ReadAll(sresp.Body)
 	if err != nil {
-		sendfatalmsg("Failed reading train signature file!")
+		ws.SendFatalMsg("Failed reading train signature file!")
 		return s, errors.New("ERROR")
 	}
 
 	// Load the PEM key
 	trainpub, terr := loadtrainspub()
 	if terr != nil {
-		sendfatalmsg("Failed to load train pubkey!")
+		ws.SendFatalMsg("Failed to load train pubkey!")
 		return s, errors.New("ERROR")
 	}
 	block, _ := pem.Decode(trainpub)
 	if block == nil || block.Type != "PUBLIC KEY" {
-		sendfatalmsg("failed to decode PEM block containing public key")
+		ws.SendFatalMsg("failed to decode PEM block containing public key")
 		return s, errors.New("ERROR")
 	}
 
 	// Get the public key from PEM
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		sendfatalmsg("Failed to parse pub key")
+		ws.SendFatalMsg("Failed to parse pub key")
 		return s, errors.New("ERROR")
 	}
 
@@ -94,13 +97,13 @@ func loadtrains() (defines.TrainsDef, error) {
 		pub.(*rsa.PublicKey), crypto.SHA512, hashed[:], sdat,
 	)
 	if err != nil {
-		sendfatalmsg("Failed trains verification!")
+		ws.SendFatalMsg("Failed trains verification!")
 		return s, errors.New("ERROR")
 	}
 
 	// Lets decode this puppy
 	if err := json.Unmarshal(dat, &s); err != nil {
-		sendfatalmsg("Failed JSON parsing of train file!")
+		ws.SendFatalMsg("Failed JSON parsing of train file!")
 		return s, errors.New("ERROR")
 	}
 
@@ -114,7 +117,7 @@ func loadtrains() (defines.TrainsDef, error) {
 }
 
 // Get trains and reply
-func dotrainlist() {
+func DoTrainList() {
 	trains, err := loadtrains()
 	if err != nil {
 		return
@@ -139,7 +142,7 @@ func sendtraindetails(trains defines.TrainsDef) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := defines.Conns.WriteMessage(
+	if err := defines.WSServer.WriteMessage(
 		websocket.TextMessage, msg,
 	); err != nil {
 		log.Fatal(err)
@@ -218,7 +221,7 @@ func createnewpkgconf(train defines.TrainDef) {
 
 }
 
-func dosettrain(message []byte) {
+func DoSetTrain(message []byte) {
 	// Get the new train name from JSON
 	var s struct {
 		defines.Envelope
@@ -244,13 +247,13 @@ func dosettrain(message []byte) {
 		}
 	}
 	if foundt == -1 {
-		sendfatalmsg("Invalid train specified: " + newtrain)
+		ws.SendFatalMsg("Invalid train specified: " + newtrain)
 		return
 	}
 
 	// Sanity check
 	if trains[foundt].PkgURL == "" {
-		sendfatalmsg("Train missing PkgURL")
+		ws.SendFatalMsg("Train missing PkgURL")
 		return
 	}
 
@@ -271,7 +274,7 @@ func dosettrain(message []byte) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := defines.Conns.WriteMessage(
+	if err := defines.WSServer.WriteMessage(
 		websocket.TextMessage, msg,
 	); err != nil {
 		log.Fatal(err)
