@@ -633,8 +633,7 @@ func updateincremental(force bool) {
 
 	bufStdout := strings.NewReader(string(stdoutBuf.Bytes()))
 	buff := bufio.NewScanner(bufStdout)
-	//  buff := bufio.NewScanner(string(stdoutBuf.Bytes()))
-	//    buff := bufio.NewScanner(bufStdout)
+
 	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
