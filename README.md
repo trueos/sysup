@@ -5,7 +5,7 @@ System Update utility written in GO for TrueOS, FreeNAS, TrueView and related pr
 ## Full lists of options
 * `sysup [-websocket] [-websocket-addr <address>]` : Start a system-wide websocket backend
 * `sysup [-websocket-addr <address>] -check [-updatefile <img file> [-updatekey <keyfile>]]` : Check for updates
-* `sysup [-websocket-addr <address>] -update [-fullupdate] [-disablebootstrap] [-bename <name>] [-updatefile <img file> [-updatekey <keyfile>]]` : Start updates
+* `sysup [-websocket-addr <address>] [-update | -fullupdate] [-disablebootstrap] [-bename <name>] [-updatefile <img file> [-updatekey <keyfile>]]` : Start updates
 * `sysup [-websocket-addr <address>] -list-trains` : List the available package trains
 * `sysup [-websocket-addr <address>] -change-train <train-name>` : Change to a different package train
 
@@ -23,6 +23,9 @@ Only **one** of these arguments may be used at a time.
    - Check for updates
 - **-update**
    - Start performing updates
+- **-fullupdate**
+   - Force a "full" update of all packages (including kernel/world).
+   - Default Value: This is automatically determined based on whether the base packages (kernel/world) are tagged as newer on the package repository.
 - **-list-trains**
    - List all the pkg "trains" that the system is aware of (defined in "/usr/local/etc/sysup.json")
 - **-change-train TRAIN_NAME**
@@ -51,9 +54,6 @@ These arguments are add-ons for the "-update" argument and are typically not nee
    - A boot environment with "NAME" must *not* already exist, otherwise sysup will return an error.
    - Default Value: sysup with automatically generate a unique boot environment name using a date/time stamp.
       - Example of auto-generated BE name: "2018-11-27-14-34-26"
-- **-fullupdate**
-   - Force a "full" update of all packages (including kernel/world).
-   - Default Value: This is automatically determined based on whether the base packages (kernel/world) are tagged as newer on the package repository.
 - **-stage2**
    - Start stage2 of an update (installing non-kernel package updates)
    - **WARNING** This is a debugging option that is only used internally. This should *not* be run manually by the user.
