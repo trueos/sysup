@@ -25,7 +25,11 @@ import (
 func startws() {
 	log.SetFlags(0)
 	http.HandleFunc("/ws", readws)
-	log.Println("Listening on", defines.WebsocketAddr)
+
+	// This isn't applicable when they aren't invoking sysup as a server
+	if defines.WebsocketFlag {
+		log.Println("Listening on", defines.WebsocketAddr)
+	}
 
 	//Make this non-fatal so it can be run every time (will fail *instantly*
 	//if a websocket is already running on that address)
@@ -182,7 +186,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if defines.UpdateFlag {
+	if defines.UpdateFlag || defines.FullUpdateFlag {
 		connectws()
 		client.StartUpdate()
 		ws.CloseWs()

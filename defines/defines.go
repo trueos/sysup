@@ -131,7 +131,7 @@ func init() {
 		"bename",
 		"",
 		"Set the name of the new boot-environment for updating."+
-			"Must not exist yet.",
+			" Must not exist yet.",
 	)
 	flag.StringVar(
 		&CacheDirFlag,
