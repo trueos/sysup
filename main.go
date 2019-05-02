@@ -85,10 +85,11 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			log.Println("read:", err)
 			break
 		}
+
 		if !json.Valid(message) {
 			log.Println("INVALID JSON")
+			ws.SendFatalMsg("INVALID JSON")
 			continue
-
 		}
 
 		// Start decoding the incoming JSON
