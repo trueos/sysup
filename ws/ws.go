@@ -8,50 +8,33 @@ import (
 	"time"
 )
 
-func SendBlMsg(info string) {
-	type JSONReply struct {
-		Method string `json:"method"`
-		Info   string `json:"info"`
-	}
-
-	data := &JSONReply{
-		Method: "updatebootloader",
-		Info:   info,
-	}
-	msg, err := json.Marshal(data)
-	if err != nil {
-		log.Fatal("Failed encoding JSON:", err)
-	}
-	if err := defines.WSServer.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Fatal(err)
-	}
+type JSONReply struct {
+	Method string `json:"method"`
+	Info   string `json:"info"`
 }
 
-func SendInfoMsg(info string) {
-	type JSONReply struct {
-		Method string `json:"method"`
-		Info   string `json:"info"`
-	}
-
+func SendInfoMsg(info string, bootloader ...bool) {
 	data := &JSONReply{
 		Method: "info",
 		Info:   info,
 	}
+
+	if len(bootloader) > 0 {
+		data.Method = "updatebootloader"
+	}
+
 	msg, err := json.Marshal(data)
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := defines.WSServer.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.WSServer.WriteMessage(
+		websocket.TextMessage, msg,
+	); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func SendShutdownMsg(info string) {
-	type JSONReply struct {
-		Method string `json:"method"`
-		Info   string `json:"info"`
-	}
-
 	data := &JSONReply{
 		Method: "shutdown",
 		Info:   info,
@@ -60,17 +43,14 @@ func SendShutdownMsg(info string) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := defines.WSServer.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.WSServer.WriteMessage(
+		websocket.TextMessage, msg,
+	); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func SendFatalMsg(info string) {
-	type JSONReply struct {
-		Method string `json:"method"`
-		Info   string `json:"info"`
-	}
-
 	data := &JSONReply{
 		Method: "fatal",
 		Info:   info,
@@ -79,7 +59,9 @@ func SendFatalMsg(info string) {
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := defines.WSServer.WriteMessage(websocket.TextMessage, msg); err != nil {
+	if err := defines.WSServer.WriteMessage(
+		websocket.TextMessage, msg,
+	); err != nil {
 		log.Fatal(err)
 	}
 }

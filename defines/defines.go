@@ -111,7 +111,7 @@ func init() {
 		&BootloaderFlag,
 		"updatebootloader",
 		false,
-		"Perform one-time update of boot-loader",
+		"Perform one-time update of bootloader",
 	)
 	flag.StringVar(
 		&UpdateFileFlag,

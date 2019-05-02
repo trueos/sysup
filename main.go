@@ -109,7 +109,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			update.DoUpdate(message)
 		case "updatebootloader":
 			update.UpdateLoader("")
-			ws.SendBlMsg("Finished boot-loader process")
+			ws.SendInfoMsg("Finished bootloader process", true)
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}

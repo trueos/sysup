@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/trueos/sysup/defines"
 	"github.com/trueos/sysup/logger"
@@ -540,7 +541,7 @@ func checkbaseswitch() {
 	logger.LogToFile(string(fullout))
 }
 
-func updateincremental(force bool) {
+func updateincremental(force bool) error {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	var errStdout, errStderr error
 
@@ -556,8 +557,11 @@ func updateincremental(force bool) {
 		err_string := fmt.Sprintf(
 			"Copying /etc/resolv.conf failed: %s\n", err,
 		)
+		pkg.DestroyMdDev()
 		logger.LogToFile(err_string)
 		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
 	}
 
 	pkgcmd := exec.Command(
@@ -571,8 +575,11 @@ func updateincremental(force bool) {
 		err_string := fmt.Sprintf(
 			"Upgrading pkg failed: %s\n", lastMessage[len(lastMessage)-2],
 		)
+		pkg.DestroyMdDev()
 		logger.LogToFile(err_string)
 		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
 	}
 
 	ws.SendInfoMsg(string(fullout))
@@ -600,9 +607,12 @@ func updateincremental(force bool) {
 	}
 	logger.LogToFile("Starting upgrade with: " + strings.Join(cmd.Args, " "))
 	if err := cmd.Start(); err != nil {
+		pkg.DestroyMdDev()
 		err_string := fmt.Sprintf("Starting pkg upgrade failed: %s\n", err)
 		logger.LogToFile(err_string)
 		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
 	}
 
 	// We want to make sure we aren't blocking stdout
@@ -625,10 +635,17 @@ func updateincremental(force bool) {
 		)
 		logger.LogToFile(err_string)
 		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
 	}
 
 	if errStdout != nil || errStderr != nil {
-		log.Fatal("failed to capture stdout or stderr\n")
+		pkg.DestroyMdDev()
+		err_string := "Failed to capture stdout or stderr\n"
+		logger.LogToFile(err_string)
+		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
 	}
 
 	bufStdout := strings.NewReader(string(stdoutBuf.Bytes()))
@@ -651,7 +668,7 @@ func updateincremental(force bool) {
 			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 			"set", "-y", "-A", "00", critpkg[i],
 		)
-		fullout, err = pkgcmd.CombinedOutput()
+		fullout, _ = pkgcmd.CombinedOutput()
 		ws.SendInfoMsg(string(fullout))
 		logger.LogToFile(string(fullout))
 	}
@@ -661,10 +678,12 @@ func updateincremental(force bool) {
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 		"autoremove", "-y",
 	)
-	fullout, err = pkgcmd.CombinedOutput()
+	// err isn't used
+	fullout, _ = pkgcmd.CombinedOutput()
 	ws.SendInfoMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
+	return nil
 }
 
 func startupgrade() {
@@ -676,12 +695,14 @@ func startupgrade() {
 	// If we are using standalone update need to nullfs mount the pkgs
 	doupdatefilemnt()
 
-	updateincremental(defines.FullUpdateFlag)
+	if err := updateincremental(defines.FullUpdateFlag); err != nil {
+		return
+	}
 
 	// Check if we need to do any ZFS automagic
 	sanitize_zfs()
 
-	// Update the boot-loader
+	// Update the bootloader
 	UpdateLoader(defines.STAGEDIR)
 
 	// Cleanup nullfs mount
@@ -820,20 +841,20 @@ func startfetch() error {
 
 func UpdateLoader(stagedir string) {
 	logger.LogToFile("Updating Bootloader\n-------------------")
-	ws.SendInfoMsg("Updating Bootloader")
+	ws.SendInfoMsg("Updating Bootloader", true)
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if isuefi(disks[i]) {
-			logger.LogToFile("Updating EFI boot-loader on: " + disks[i])
-			ws.SendInfoMsg("Updating EFI boot-loader on: " + disks[i])
+			logger.LogToFile("Updating EFI bootloader on: " + disks[i])
+			ws.SendInfoMsg("Updating EFI bootloader on: " + disks[i])
 			if !updateuefi(disks[i], stagedir) {
-				ws.SendFatalMsg("Updating boot-loader failed!")
+				ws.SendFatalMsg("Updating bootloader failed!")
 			}
 		} else {
-			logger.LogToFile("Updating GPT boot-loader on: " + disks[i])
-			ws.SendInfoMsg("Updating GPT boot-loader on: " + disks[i])
+			logger.LogToFile("Updating GPT bootloader on: " + disks[i])
+			ws.SendInfoMsg("Updating GPT bootloader on: " + disks[i])
 			if !updategpt(disks[i], stagedir) {
-				ws.SendFatalMsg("Updating boot-loader failed!")
+				ws.SendFatalMsg("Updating bootloader failed!")
 			}
 		}
 	}
@@ -1064,7 +1085,7 @@ func getzpooldisks() []string {
 		if !diskisinpool(kerndisks[i], duuids, zpool) {
 			continue
 		}
-		logger.LogToFile("Updating boot-loader on disk: " + kerndisks[i])
+		logger.LogToFile("Updating bootloader on disk: " + kerndisks[i])
 		diskarr = append(diskarr, kerndisks[i])
 	}
 	return diskarr
