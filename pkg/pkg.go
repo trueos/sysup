@@ -75,11 +75,13 @@ func mountofflineupdate() {
 	}
 
 	if _, err := os.Stat(defines.UpdateFileFlag); os.IsNotExist(err) {
-		ws.SendFatalMsg(
-			"Offline update file " + defines.UpdateFileFlag +
+		ws.SendMsg(
+			"Offline update file "+defines.UpdateFileFlag+
 				" does not exist!",
+			"fatal",
 		)
 		ws.CloseWs()
+		// TODO: Do we really want to kill the server?
 		os.Exit(1)
 	}
 
@@ -116,12 +118,14 @@ func mountofflineupdate() {
 		// We failed to mount, cleanup the memory device
 		cmd := exec.Command("mdconfig", "-d", "-u", defines.MdDev)
 		cmd.Run()
-		ws.SendFatalMsg(
-			"Offline update file " + defines.UpdateFileFlag +
+		ws.SendMsg(
+			"Offline update file "+defines.UpdateFileFlag+
 				" cannot be mounted",
+			"fatal",
 		)
 		defines.MdDev = ""
 		ws.CloseWs()
+		// TODO: Do we really want to kill the server?
 		os.Exit(1)
 	}
 }
@@ -206,9 +210,9 @@ IGNORE_OSVERSION: YES
 func UpdatePkgDb(newabi string) {
 	cmd := exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "update", "-f")
 	if newabi == "" {
-		ws.SendInfoMsg("Updating package remote database")
+		ws.SendMsg("Updating package remote database")
 	} else {
-		ws.SendInfoMsg("Updating package remote database with new ABI: " + newabi)
+		ws.SendMsg("Updating package remote database with new ABI: " + newabi)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -264,14 +268,14 @@ func UpdateDryRun(sendupdate bool) (*defines.UpdateInfo, bool, error) {
 	updetails := &details
 
 	cmd := exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "upgrade", "-n")
-	ws.SendInfoMsg("Checking system for updates")
+	ws.SendMsg("Checking system for updates")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		ws.SendFatalMsg("Failed dry run of pkg upgrade")
+		ws.SendMsg("Failed dry run of pkg upgrade", "fatal")
 		return updetails, false, errors.New("ERROR")
 	}
 	if err := cmd.Start(); err != nil {
-		ws.SendFatalMsg("Failed dry run of pkg upgrade")
+		ws.SendMsg("Failed dry run of pkg upgrade", "fatal")
 		return updetails, false, errors.New("ERROR")
 	}
 	buff := bufio.NewScanner(stdout)

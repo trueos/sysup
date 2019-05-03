@@ -88,14 +88,14 @@ func readws(w http.ResponseWriter, r *http.Request) {
 
 		if !json.Valid(message) {
 			log.Println("INVALID JSON")
-			ws.SendFatalMsg("INVALID JSON")
+			ws.SendMsg("INVALID JSON", "fatal")
 			continue
 		}
 
 		// Start decoding the incoming JSON
 		var env defines.Envelope
 		if err := json.Unmarshal(message, &env); err != nil {
-			ws.SendInfoMsg("Invalid JSON received")
+			ws.SendMsg("Invalid JSON received")
 			log.Println("Warning: Invalid JSON message received")
 			log.Println(err)
 		}
@@ -110,7 +110,7 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			update.DoUpdate(message)
 		case "updatebootloader":
 			update.UpdateLoader("")
-			ws.SendInfoMsg("Finished bootloader process", true)
+			ws.SendMsg("Finished bootloader process", "updatebootloader")
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}
