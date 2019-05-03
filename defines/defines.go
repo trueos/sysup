@@ -67,6 +67,8 @@ var UpdateFileFlag string
 var UpdateKeyFlag string
 var CacheDirFlag string
 var WebsocketFlag bool
+var WebsocketIP string
+var WebsocketPort int
 var WebsocketAddr string
 
 func init() {
@@ -146,10 +148,16 @@ func init() {
 		"Start websocket server for direct API access and events",
 	)
 	flag.StringVar(
-		&WebsocketAddr,
-		"websocket-addr",
-		"127.0.0.1:8134",
-		"Address to have the websocket server listen on",
+		&WebsocketIP,
+		"addr",
+		"127.0.0.1",
+		"IP Address to have the websocket server listen on",
+	)
+	flag.IntVar(
+		&WebsocketPort,
+		"port",
+		8134,
+		"Port to use when in server mode",
 	)
 	flag.Parse()
 }

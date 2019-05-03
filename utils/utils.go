@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 )
 
@@ -29,4 +30,15 @@ func Copyfile(src, dst string) (int64, error) {
 	defer destination.Close()
 	nBytes, err := io.Copy(destination, source)
 	return nBytes, err
+}
+
+func GetFreePort() (int, error) {
+	ln, err := net.Listen("tcp", ":0")
+	defer ln.Close()
+
+	if err != nil {
+		return 0, err
+	}
+
+	return ln.Addr().(*net.TCPAddr).Port, nil
 }
