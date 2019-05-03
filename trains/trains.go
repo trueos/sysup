@@ -27,9 +27,10 @@ func loadtrains() (defines.TrainsDef, error) {
 	s := defines.TrainsDef{}
 
 	if defines.TrainsUrl == "" {
-		ws.SendFatalMsg(
-			"No train URL defined in JSON configuration: " +
+		ws.SendMsg(
+			"No train URL defined in JSON configuration: "+
 				defines.ConfigJson,
+			"fatal",
 		)
 		return s, errors.New("ERROR")
 	}
@@ -37,7 +38,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	//sendinfomsg("Fetching trains configuration")
 	resp, err := http.Get(defines.TrainsUrl)
 	if err != nil {
-		ws.SendFatalMsg("Failed fetching " + defines.TrainsUrl)
+		ws.SendMsg("Failed fetching "+defines.TrainsUrl, "fatal")
 		return s, errors.New("ERROR")
 	}
 
@@ -47,7 +48,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	// Load the file into memory
 	dat, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		ws.SendFatalMsg("Failed reading train file!")
+		ws.SendMsg("Failed reading train file!", "fatal")
 		return s, errors.New("ERROR")
 	}
 
@@ -55,7 +56,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	//sendinfomsg("Fetching trains signature")
 	sresp, serr := http.Get(defines.TrainsUrl + ".sha1")
 	if serr != nil {
-		ws.SendFatalMsg("Failed fetching " + defines.TrainsUrl + ".sha1")
+		ws.SendMsg("Failed fetching "+defines.TrainsUrl+".sha1", "fatal")
 		return s, errors.New("ERROR")
 	}
 
@@ -65,26 +66,26 @@ func loadtrains() (defines.TrainsDef, error) {
 	// Load the file into memory
 	sdat, err := ioutil.ReadAll(sresp.Body)
 	if err != nil {
-		ws.SendFatalMsg("Failed reading train signature file!")
+		ws.SendMsg("Failed reading train signature file!", "fatal")
 		return s, errors.New("ERROR")
 	}
 
 	// Load the PEM key
 	trainpub, terr := loadtrainspub()
 	if terr != nil {
-		ws.SendFatalMsg("Failed to load train pubkey!")
+		ws.SendMsg("Failed to load train pubkey!", "fatal")
 		return s, errors.New("ERROR")
 	}
 	block, _ := pem.Decode(trainpub)
 	if block == nil || block.Type != "PUBLIC KEY" {
-		ws.SendFatalMsg("failed to decode PEM block containing public key")
+		ws.SendMsg("failed to decode PEM block containing public key", "fatal")
 		return s, errors.New("ERROR")
 	}
 
 	// Get the public key from PEM
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		ws.SendFatalMsg("Failed to parse pub key")
+		ws.SendMsg("Failed to parse pub key", "fatal")
 		return s, errors.New("ERROR")
 	}
 
@@ -95,13 +96,13 @@ func loadtrains() (defines.TrainsDef, error) {
 		pub.(*rsa.PublicKey), crypto.SHA512, hashed[:], sdat,
 	)
 	if err != nil {
-		ws.SendFatalMsg("Failed trains verification!")
+		ws.SendMsg("Failed trains verification!", "fatal")
 		return s, errors.New("ERROR")
 	}
 
 	// Lets decode this puppy
 	if err := json.Unmarshal(dat, &s); err != nil {
-		ws.SendFatalMsg("Failed JSON parsing of train file!")
+		ws.SendMsg("Failed JSON parsing of train file!", "fatal")
 		return s, errors.New("ERROR")
 	}
 
@@ -245,13 +246,13 @@ func DoSetTrain(message []byte) {
 		}
 	}
 	if foundt == -1 {
-		ws.SendFatalMsg("Invalid train specified: " + newtrain)
+		ws.SendMsg("Invalid train specified: "+newtrain, "fatal")
 		return
 	}
 
 	// Sanity check
 	if trains[foundt].PkgURL == "" {
-		ws.SendFatalMsg("Train missing PkgURL")
+		ws.SendMsg("Train missing PkgURL", "fatal")
 		return
 	}
 

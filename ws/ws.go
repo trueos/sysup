@@ -13,54 +13,26 @@ type JSONReply struct {
 	Info   string `json:"info"`
 }
 
-func SendInfoMsg(info string, bootloader ...bool) {
+func SendMsg(msg string, msg_type ...string) {
+	m_type := "info"
+
+	if len(msg_type) > 0 {
+		m_type = msg_type[0]
+	}
+
 	data := &JSONReply{
-		Method: "info",
-		Info:   info,
+		Method: m_type,
+		Info:   msg,
 	}
 
-	if len(bootloader) > 0 {
-		data.Method = "updatebootloader"
-	}
+	j_msg, err := json.Marshal(data)
 
-	msg, err := json.Marshal(data)
 	if err != nil {
 		log.Fatal("Failed encoding JSON:", err)
 	}
-	if err := defines.WSServer.WriteMessage(
-		websocket.TextMessage, msg,
-	); err != nil {
-		log.Fatal(err)
-	}
-}
 
-func SendShutdownMsg(info string) {
-	data := &JSONReply{
-		Method: "shutdown",
-		Info:   info,
-	}
-	msg, err := json.Marshal(data)
-	if err != nil {
-		log.Fatal("Failed encoding JSON:", err)
-	}
 	if err := defines.WSServer.WriteMessage(
-		websocket.TextMessage, msg,
-	); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func SendFatalMsg(info string) {
-	data := &JSONReply{
-		Method: "fatal",
-		Info:   info,
-	}
-	msg, err := json.Marshal(data)
-	if err != nil {
-		log.Fatal("Failed encoding JSON:", err)
-	}
-	if err := defines.WSServer.WriteMessage(
-		websocket.TextMessage, msg,
+		websocket.TextMessage, j_msg,
 	); err != nil {
 		log.Fatal(err)
 	}

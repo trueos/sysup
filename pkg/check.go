@@ -65,7 +65,7 @@ func HaveOsVerChange() bool {
 	OSVER := fmt.Sprint(OSINT)
 	logger.LogToFile("OS Version: " + OSVER + " -> " + REMOTEVER)
 	if OSVER != REMOTEVER {
-		ws.SendInfoMsg(
+		ws.SendMsg(
 			"Remote ABI change detected: " + OSVER + " -> " + REMOTEVER,
 		)
 		logger.LogToFile(

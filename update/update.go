@@ -63,7 +63,7 @@ func DoUpdate(message []byte) {
 		return
 	}
 	if !haveupdates && !defines.FullUpdateFlag {
-		ws.SendFatalMsg("No updates to install!")
+		ws.SendMsg("No updates to install!", "fatal")
 		return
 	}
 
@@ -157,15 +157,15 @@ func dopassthroughupdate() {
 
 	// Iterate over buff and report back to listeners
 	for buff.Scan() {
-		ws.SendInfoMsg(buff.Text())
+		ws.SendMsg(buff.Text())
 	}
 	// Sysup returns 0 on sucess
 	if err := cmd.Wait(); err != nil {
-		ws.SendFatalMsg("Failed update!")
+		ws.SendMsg("Failed update!", "fatal")
 	}
 
 	// Let our local clients know they can finish up
-	ws.SendShutdownMsg("")
+	ws.SendMsg("", "shutdown")
 }
 
 func doupdatefileumnt(prefix string) {
@@ -204,7 +204,7 @@ func doupdatefilemnt() {
 func dosysupbootstrap() {
 
 	// Start by updating the sysup PKG
-	ws.SendInfoMsg("Starting Sysup boot-strap")
+	ws.SendMsg("Starting Sysup boot-strap")
 	logger.LogToFile("SysUp Stage 1\n-----------------------")
 
 	// We update sysup command directly on the host
@@ -227,12 +227,12 @@ func dosysupbootstrap() {
 	// Iterate over buff and append content to the slice
 	for buff.Scan() {
 		line := buff.Text()
-		ws.SendInfoMsg(line)
+		ws.SendMsg(line)
 		logger.LogToFile(line)
 	}
 	// Pkg returns 0 on sucess
 	if err := cmd.Wait(); err != nil {
-		ws.SendFatalMsg("Failed sysup update!")
+		ws.SendMsg("Failed sysup update!", "fatal")
 	}
 
 	cmd = exec.Command("rm", "-rf", "/var/db/pkg")
@@ -250,7 +250,7 @@ func dosysupbootstrap() {
 		log.Fatal(err)
 	}
 
-	ws.SendInfoMsg("Finished stage 1 Sysup boot-strap")
+	ws.SendMsg("Finished stage 1 Sysup boot-strap")
 	logger.LogToFile("FinishedSysUp Stage 1\n-----------------------")
 
 	doupdatefileumnt("")
@@ -268,7 +268,7 @@ func cleanupbe() {
 func createnewbe() {
 	// Start creating the new BE and mount it for package ops
 	logger.LogToFile("Creating new boot-environment")
-	ws.SendInfoMsg("Creating new Boot-Environment")
+	ws.SendMsg("Creating new Boot-Environment")
 	cmd := exec.Command(defines.BEBIN, "create", defines.BESTAGE)
 	err := cmd.Run()
 	if err != nil {
@@ -372,7 +372,7 @@ func sanitize_zfs() {
 
 func cleanup_zol_port() {
 
-	ws.SendInfoMsg("Cleaning ZFS Port")
+	ws.SendMsg("Cleaning ZFS Port")
 	logger.LogToFile("ZFS Port cleanup stage 1\n-----------------------")
 
 	// Update the sysutils/zol port
@@ -400,7 +400,7 @@ func cleanup_zol_port() {
 	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
-		ws.SendInfoMsg(line)
+		ws.SendMsg(line)
 		logger.LogToFile(line)
 	}
 	// Pkg returns 0 on sucess
@@ -408,11 +408,11 @@ func cleanup_zol_port() {
 		errbuf, _ := ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
 		for i, _ := range errarr {
-			ws.SendInfoMsg(errarr[i])
+			ws.SendMsg(errarr[i])
 			logger.LogToFile(errarr[i])
 		}
 	}
-	ws.SendInfoMsg("Finished stage 1 ZFS update")
+	ws.SendMsg("Finished stage 1 ZFS update")
 	logger.LogToFile(
 		"Finished ZFS port cleanup stage 1\n-----------------------",
 	)
@@ -442,11 +442,11 @@ func checkbaseswitch() {
 		defines.STAGEDIR+"/etc", ".",
 	).Output()
 	if cmderr != nil {
-		ws.SendInfoMsg(string(output))
-		ws.SendFatalMsg("Failed saving /etc configuration")
+		ws.SendMsg(string(output))
+		ws.SendMsg("Failed saving /etc configuration", "fatal")
 	}
 	// Make sure pkg is fetched
-	ws.SendInfoMsg("Fetching new base")
+	ws.SendMsg("Fetching new base")
 	logger.LogToFile("Fetching new base")
 	cmd = exec.Command(
 		defines.PKGBIN, "-C", defines.PkgConf, "fetch", "-U", "-d",
@@ -454,7 +454,7 @@ func checkbaseswitch() {
 	)
 	err = cmd.Run()
 	if err != nil {
-		ws.SendFatalMsg("Failed fetching new base")
+		ws.SendMsg("Failed fetching new base", "fatal")
 	}
 
 	// Get list of packages we need to nuke
@@ -462,14 +462,14 @@ func checkbaseswitch() {
 		" query '%o %n-%v' | grep '^base ' | awk '{print $2}'"
 	output, cmderr = exec.Command("/bin/sh", "-c", shellcmd).Output()
 	if cmderr != nil {
-		ws.SendFatalMsg("Failed getting base package list")
+		ws.SendMsg("Failed getting base package list", "fatal")
 	}
 
 	basepkgs := strings.TrimSpace(string(output))
 	barr := strings.Split(basepkgs, "\n")
 	for i, _ := range barr {
 		// Unset vital flag
-		ws.SendInfoMsg("Removing: " + barr[i])
+		ws.SendMsg("Removing: " + barr[i])
 		logger.LogToFile("Removing: " + barr[i])
 		cmd := exec.Command(
 			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
@@ -485,21 +485,21 @@ func checkbaseswitch() {
 		)
 		remout, err := cmd.CombinedOutput()
 		if err != nil {
-			ws.SendInfoMsg(string(remout))
-			ws.SendFatalMsg("Failed removing " + barr[i])
+			ws.SendMsg(string(remout))
+			ws.SendMsg("Failed removing "+barr[i], "fatal")
 		}
 		if strings.Contains(barr[i], "-runtime-1") {
 			// If this was the runtime package, need to re-install userland
 			// right away
-			ws.SendInfoMsg("Boot-strapping userland")
+			ws.SendMsg("Boot-strapping userland")
 			pkgcmd := exec.Command(
 				defines.PKGBIN, "-r", defines.STAGEDIR, "-C", defines.PkgConf,
 				"install", "-U", "-f", "-y", "os/userland",
 			)
 			fullout, err := pkgcmd.CombinedOutput()
 			if err != nil {
-				ws.SendInfoMsg(string(fullout))
-				ws.SendFatalMsg("Failed boot-strapping userland")
+				ws.SendMsg(string(fullout))
+				ws.SendMsg("Failed boot-strapping userland", "fatal")
 			}
 		}
 	}
@@ -510,7 +510,7 @@ func checkbaseswitch() {
 		"install", "-U", "-y", "os/userland", "os/kernel",
 	)
 	fullout, err := pkgcmd.CombinedOutput()
-	ws.SendInfoMsg(string(fullout))
+	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
 	// Ensure pkg is boot-strapped again
@@ -518,7 +518,7 @@ func checkbaseswitch() {
 		defines.PkgConf, "install", "-U", "-y", "ports-mgmt/pkg",
 	)
 	fullout, err = pkgcmd.CombinedOutput()
-	ws.SendInfoMsg(string(fullout))
+	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
 	// Copy back the /etc changes
@@ -527,8 +527,8 @@ func checkbaseswitch() {
 		defines.STAGEDIR+"/etc",
 	).CombinedOutput()
 	if cmderr != nil {
-		ws.SendInfoMsg(string(output))
-		ws.SendInfoMsg("WARNING: Tar error while updating /etc configuration")
+		ws.SendMsg(string(output))
+		ws.SendMsg("WARNING: Tar error while updating /etc configuration")
 	}
 	exec.Command("rm", defines.STAGEDIR+"/.etcbackup.tgz").Run()
 
@@ -537,7 +537,7 @@ func checkbaseswitch() {
 		defines.PkgConf, "set", "-y", "-A", "00", "sysutils/sysup",
 	)
 	fullout, err = pkgcmd.CombinedOutput()
-	ws.SendInfoMsg(string(fullout))
+	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 }
 
@@ -545,7 +545,7 @@ func updateincremental(force bool) error {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	var errStdout, errStderr error
 
-	ws.SendInfoMsg("Starting package update")
+	ws.SendMsg("Starting package update")
 	logger.LogToFile("PackageUpdate\n-----------------------")
 
 	// Check if we are moving from legacy pkg base to ports-base
@@ -559,7 +559,7 @@ func updateincremental(force bool) error {
 		)
 		pkg.DestroyMdDev()
 		logger.LogToFile(err_string)
-		ws.SendFatalMsg(err_string)
+		ws.SendMsg(err_string, "fatal")
 
 		return errors.New(err_string)
 	}
@@ -577,12 +577,12 @@ func updateincremental(force bool) error {
 		)
 		pkg.DestroyMdDev()
 		logger.LogToFile(err_string)
-		ws.SendFatalMsg(err_string)
+		ws.SendMsg(err_string, "fatal")
 
 		return errors.New(err_string)
 	}
 
-	ws.SendInfoMsg(string(fullout))
+	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
 	// Setup our main update process
@@ -610,7 +610,7 @@ func updateincremental(force bool) error {
 		pkg.DestroyMdDev()
 		err_string := fmt.Sprintf("Starting pkg upgrade failed: %s\n", err)
 		logger.LogToFile(err_string)
-		ws.SendFatalMsg(err_string)
+		ws.SendMsg(err_string, "fatal")
 
 		return errors.New(err_string)
 	}
@@ -634,7 +634,7 @@ func updateincremental(force bool) error {
 			"Failed pkg upgrade:\n%s\n", string(stderrBuf.Bytes()),
 		)
 		logger.LogToFile(err_string)
-		ws.SendFatalMsg(err_string)
+		ws.SendMsg(err_string, "fatal")
 
 		return errors.New(err_string)
 	}
@@ -643,7 +643,7 @@ func updateincremental(force bool) error {
 		pkg.DestroyMdDev()
 		err_string := "Failed to capture stdout or stderr\n"
 		logger.LogToFile(err_string)
-		ws.SendFatalMsg(err_string)
+		ws.SendMsg(err_string, "fatal")
 
 		return errors.New(err_string)
 	}
@@ -654,11 +654,11 @@ func updateincremental(force bool) error {
 	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
-		ws.SendInfoMsg(line)
+		ws.SendMsg(line)
 		logger.LogToFile("pkg: " + line)
 	}
 
-	ws.SendInfoMsg("Finished stage package update")
+	ws.SendMsg("Finished stage package update")
 	logger.LogToFile("FinishedPackageUpdate\n-----------------------")
 
 	// Mark essential pkgs
@@ -669,7 +669,7 @@ func updateincremental(force bool) error {
 			"set", "-y", "-A", "00", critpkg[i],
 		)
 		fullout, _ = pkgcmd.CombinedOutput()
-		ws.SendInfoMsg(string(fullout))
+		ws.SendMsg(string(fullout))
 		logger.LogToFile(string(fullout))
 	}
 
@@ -680,7 +680,7 @@ func updateincremental(force bool) error {
 	)
 	// err isn't used
 	fullout, _ = pkgcmd.CombinedOutput()
-	ws.SendInfoMsg(string(fullout))
+	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
 	return nil
@@ -717,8 +717,9 @@ func startupgrade() {
 
 	// If we are using standalone update, cleanup
 	pkg.DestroyMdDev()
-	ws.SendShutdownMsg(
+	ws.SendMsg(
 		"Success! Reboot your system to continue the update process.",
+		"shutdown",
 	)
 }
 
@@ -789,7 +790,7 @@ func copylogexit(perr error, text string) {
 	cpCmd := exec.Command("cp", src, dest)
 	cpCmd.Run()
 
-	ws.SendFatalMsg("Aborting")
+	ws.SendMsg("Aborting", "fatal")
 }
 
 func startfetch() error {
@@ -803,7 +804,7 @@ func startfetch() error {
 		cmd.Args = append(cmd.Args, "-f")
 	}
 
-	ws.SendInfoMsg("Starting package downloads")
+	ws.SendMsg("Starting package downloads")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -821,7 +822,7 @@ func startfetch() error {
 	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
-		ws.SendInfoMsg(line)
+		ws.SendMsg(line)
 	}
 	// If we get a non-0 back, report the full error
 	if err := cmd.Wait(); err != nil {
@@ -829,32 +830,32 @@ func startfetch() error {
 		errarr := strings.Split(string(errbuf), "\n")
 		for i, _ := range errarr {
 			logger.LogToFile(errarr[i])
-			ws.SendInfoMsg(errarr[i])
+			ws.SendMsg(errarr[i])
 		}
-		ws.SendFatalMsg("Failed package fetch!")
+		ws.SendMsg("Failed package fetch!", "fatal")
 		return err
 	}
-	ws.SendInfoMsg("Finished package downloads")
+	ws.SendMsg("Finished package downloads")
 
 	return nil
 }
 
 func UpdateLoader(stagedir string) {
 	logger.LogToFile("Updating Bootloader\n-------------------")
-	ws.SendInfoMsg("Updating Bootloader", true)
+	ws.SendMsg("Updating Bootloader", "updatebootloader")
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if isuefi(disks[i]) {
 			logger.LogToFile("Updating EFI bootloader on: " + disks[i])
-			ws.SendInfoMsg("Updating EFI bootloader on: " + disks[i])
+			ws.SendMsg("Updating EFI bootloader on: " + disks[i])
 			if !updateuefi(disks[i], stagedir) {
-				ws.SendFatalMsg("Updating bootloader failed!")
+				ws.SendMsg("Updating bootloader failed!", "fatal")
 			}
 		} else {
 			logger.LogToFile("Updating GPT bootloader on: " + disks[i])
-			ws.SendInfoMsg("Updating GPT bootloader on: " + disks[i])
+			ws.SendMsg("Updating GPT bootloader on: " + disks[i])
 			if !updategpt(disks[i], stagedir) {
-				ws.SendFatalMsg("Updating bootloader failed!")
+				ws.SendMsg("Updating bootloader failed!", "fatal")
 			}
 		}
 	}
@@ -863,18 +864,18 @@ func UpdateLoader(stagedir string) {
 func updateuefi(disk string, stagedir string) bool {
 	derr := os.MkdirAll("/boot/efi", 0755)
 	if derr != nil {
-		ws.SendInfoMsg("ERROR: Failed mkdir /boot/efi")
+		ws.SendMsg("ERROR: Failed mkdir /boot/efi")
 		copylogexit(derr, "Failed mkdir /boot/efi")
 	}
 
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		ws.SendInfoMsg("ERROR: Failed gpart show")
+		ws.SendMsg("ERROR: Failed gpart show")
 		copylogexit(derr, "Failed gpart show")
 	}
 	if err := cmd.Start(); err != nil {
-		ws.SendInfoMsg("ERROR: Failed starting gpart show")
+		ws.SendMsg("ERROR: Failed starting gpart show")
 		copylogexit(derr, "Failed starting gpart show")
 	}
 	buff := bufio.NewScanner(stdout)
@@ -885,7 +886,7 @@ func updateuefi(disk string, stagedir string) bool {
 		if strings.Contains(line, " efi ") {
 			linearray := strings.Fields(line)
 			if len(linearray) < 3 {
-				ws.SendInfoMsg("ERROR: Unable to locate EFI partition")
+				ws.SendMsg("ERROR: Unable to locate EFI partition")
 				logger.LogToFile(
 					"Unable to locate EFI partition..." + string(line),
 				)
@@ -899,7 +900,7 @@ func updateuefi(disk string, stagedir string) bool {
 			)
 			berr := bcmd.Run()
 			if berr != nil {
-				ws.SendInfoMsg("ERROR: Unable to mount EFI partition")
+				ws.SendMsg("ERROR: Unable to mount EFI partition")
 				logger.LogToFile("Unable to mount EFI partition: " + part)
 				return false
 			}
@@ -916,7 +917,7 @@ func updateuefi(disk string, stagedir string) bool {
 			cmd := exec.Command("cp", stagedir+"/boot/loader.efi", tgt)
 			cerr := cmd.Run()
 			if cerr != nil {
-				ws.SendInfoMsg("ERROR: Unable to copy efi file " + tgt)
+				ws.SendMsg("ERROR: Unable to copy efi file " + tgt)
 				logger.LogToFile("Unable to copy efi file: " + tgt)
 				return false
 			}
@@ -925,7 +926,7 @@ func updateuefi(disk string, stagedir string) bool {
 			bcmd = exec.Command("umount", "-f", "/boot/efi")
 			berr = bcmd.Run()
 			if berr != nil {
-				ws.SendInfoMsg("ERROR: Unable to umount EFI pratition " + part)
+				ws.SendMsg("ERROR: Unable to umount EFI pratition " + part)
 				logger.LogToFile("Unable to umount EFI partition: " + part)
 				return false
 			}
@@ -933,7 +934,7 @@ func updateuefi(disk string, stagedir string) bool {
 			return true
 		}
 	}
-	ws.SendInfoMsg("ERROR: Unable to locate EFI partition on: " + string(disk))
+	ws.SendMsg("ERROR: Unable to locate EFI partition on: " + string(disk))
 	logger.LogToFile("Unable to locate EFI partition on: " + string(disk))
 	return false
 }
@@ -942,12 +943,12 @@ func updategpt(disk string, stagedir string) bool {
 	cmd := exec.Command("gpart", "show", disk)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		ws.SendInfoMsg("ERROR: Failed gpart show")
+		ws.SendMsg("ERROR: Failed gpart show")
 		logger.LogToFile("ERROR: Failed gpart show")
 		return false
 	}
 	if err := cmd.Start(); err != nil {
-		ws.SendInfoMsg("ERROR: Failed starting gpart show")
+		ws.SendMsg("ERROR: Failed starting gpart show")
 		logger.LogToFile("ERROR: Failed starting gpart show")
 		return false
 	}
@@ -959,7 +960,7 @@ func updategpt(disk string, stagedir string) bool {
 		if strings.Contains(line, " freebsd-boot ") {
 			linearray := strings.Fields(line)
 			if len(linearray) < 3 {
-				ws.SendInfoMsg("ERROR: Failed to locate GPT boot partition...")
+				ws.SendMsg("ERROR: Failed to locate GPT boot partition...")
 				logger.LogToFile(
 					"Unable to locate GPT boot partition..." + string(line),
 				)
@@ -972,7 +973,7 @@ func updategpt(disk string, stagedir string) bool {
 			)
 			berr := bcmd.Run()
 			if berr != nil {
-				ws.SendInfoMsg(
+				ws.SendMsg(
 					"Failed gpart bootcode -b " + stagedir + "/boot/pmbr -p " +
 						stagedir + "/boot/gptzfsboot -i " + part + " " + disk,
 				)
@@ -985,7 +986,7 @@ func updategpt(disk string, stagedir string) bool {
 			return true
 		}
 	}
-	ws.SendInfoMsg(
+	ws.SendMsg(
 		"Unable to locate freebsd-boot partition on: " + string(disk),
 	)
 	logger.LogToFile(
