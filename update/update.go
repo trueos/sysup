@@ -2,17 +2,23 @@ package update
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/trueos/sysup/defines"
 	"github.com/trueos/sysup/logger"
 	"github.com/trueos/sysup/pkg"
+	"github.com/trueos/sysup/utils"
 	"github.com/trueos/sysup/ws"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -56,8 +62,8 @@ func DoUpdate(message []byte) {
 	if uerr != nil {
 		return
 	}
-	if !haveupdates {
-		ws.SendFatalMsg("ERROR: No updates to install!")
+	if !haveupdates && !defines.FullUpdateFlag {
+		ws.SendFatalMsg("No updates to install!")
 		return
 	}
 
@@ -137,7 +143,9 @@ func dopassthroughupdate() {
 	if ukeyflag != "" {
 		cmd.Args = append(cmd.Args, ukeyflag)
 	}
-	logger.LogToFile("Running bootstrap with flags: " + strings.Join(cmd.Args, " "))
+	logger.LogToFile(
+		"Running bootstrap with flags: " + strings.Join(cmd.Args, " "),
+	)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -302,7 +310,9 @@ func createnewbe() {
 	cmd = exec.Command("rm", "-rf", defines.STAGEDIR+"/var/db/pkg")
 	err = cmd.Run()
 	if err != nil {
-		logger.LogToFile("Failed cleanup of: " + defines.STAGEDIR + "/var/db/pkg")
+		logger.LogToFile(
+			"Failed cleanup of: " + defines.STAGEDIR + "/var/db/pkg",
+		)
 		log.Fatal(err)
 	}
 
@@ -317,7 +327,9 @@ func createnewbe() {
 	cmd = exec.Command("cp", "-r", "/etc/pkg", defines.STAGEDIR+"/etc/pkg")
 	err = cmd.Run()
 	if err != nil {
-		logger.LogToFile("Failed copy of: /etc/pkg " + defines.STAGEDIR + "/etc/pkg")
+		logger.LogToFile(
+			"Failed copy of: /etc/pkg " + defines.STAGEDIR + "/etc/pkg",
+		)
 		log.Fatal(err)
 	}
 
@@ -350,7 +362,8 @@ IGNORE_OSVERSION: YES` + `
 
 func sanitize_zfs() {
 
-	// If we have a base system ZFS, we need to check if the port needs removing
+	// If we have a base system ZFS, we need to check if the port needs
+	// removing
 	_, err := os.Stat(defines.STAGEDIR + "/boot/modules/zfs.ko")
 	if err != nil {
 		cleanup_zol_port()
@@ -367,7 +380,9 @@ func cleanup_zol_port() {
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 		"delete", "-U", "-y", "sysutils/zol-kmod",
 	)
-	logger.LogToFile("Cleaning up ZFS port with: " + strings.Join(cmd.Args, " "))
+	logger.LogToFile(
+		"Cleaning up ZFS port with: " + strings.Join(cmd.Args, " "),
+	)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -382,13 +397,11 @@ func cleanup_zol_port() {
 	}
 	buff := bufio.NewScanner(stdout)
 
-	// Iterate over buff and append content to the slice
-	var allText []string
+	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
 		ws.SendInfoMsg(line)
 		logger.LogToFile(line)
-		allText = append(allText, line+"\n")
 	}
 	// Pkg returns 0 on sucess
 	if err := cmd.Wait(); err != nil {
@@ -400,7 +413,9 @@ func cleanup_zol_port() {
 		}
 	}
 	ws.SendInfoMsg("Finished stage 1 ZFS update")
-	logger.LogToFile("Finished ZFS port cleanup stage 1\n-----------------------")
+	logger.LogToFile(
+		"Finished ZFS port cleanup stage 1\n-----------------------",
+	)
 }
 
 func checkbaseswitch() {
@@ -526,18 +541,47 @@ func checkbaseswitch() {
 	logger.LogToFile(string(fullout))
 }
 
-func updateincremental(force bool) {
+func updateincremental(force bool) error {
+	var stdoutBuf, stderrBuf bytes.Buffer
+	var errStdout, errStderr error
+
 	ws.SendInfoMsg("Starting package update")
 	logger.LogToFile("PackageUpdate\n-----------------------")
 
 	// Check if we are moving from legacy pkg base to ports-base
 	checkbaseswitch()
+	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
+
+	_, err := utils.Copyfile("/etc/resolv.conf", resolv_dest)
+	if err != nil {
+		err_string := fmt.Sprintf(
+			"Copying /etc/resolv.conf failed: %s\n", err,
+		)
+		pkg.DestroyMdDev()
+		logger.LogToFile(err_string)
+		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
+	}
 
 	pkgcmd := exec.Command(
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 		"upgrade", "-U", "-y", "-f", "ports-mgmt/pkg",
 	)
 	fullout, err := pkgcmd.CombinedOutput()
+	if err != nil {
+		lastMessage := bytes.Split(fullout, []byte{'\n'})
+		// -1 is a newline
+		err_string := fmt.Sprintf(
+			"Upgrading pkg failed: %s\n", lastMessage[len(lastMessage)-2],
+		)
+		pkg.DestroyMdDev()
+		logger.LogToFile(err_string)
+		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
+	}
+
 	ws.SendInfoMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
@@ -552,38 +596,68 @@ func updateincremental(force bool) {
 	cmd.Args = append(cmd.Args, "-I")
 	cmd.Args = append(cmd.Args, "-y")
 
+	stdoutPipe, _ := cmd.StdoutPipe()
+	stderrPipe, _ := cmd.StderrPipe()
+	stdout := io.MultiWriter(os.Stdout, &stdoutBuf)
+	stderr := io.MultiWriter(os.Stderr, &stderrBuf)
+
 	// Reinstall everything?
 	if force {
 		cmd.Args = append(cmd.Args, "-f")
 	}
 	logger.LogToFile("Starting upgrade with: " + strings.Join(cmd.Args, " "))
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		pkg.DestroyMdDev()
-		logger.LogToFile("Failed starting pkg upgrade stdout!")
-		ws.SendFatalMsg("Failed starting pkg upgrade stdout!")
-	}
 	if err := cmd.Start(); err != nil {
 		pkg.DestroyMdDev()
-		logger.LogToFile("Failed starting pkg upgrade!")
-		ws.SendFatalMsg("Failed starting pkg upgrade!")
-	}
-	buff := bufio.NewScanner(stdout)
+		err_string := fmt.Sprintf("Starting pkg upgrade failed: %s\n", err)
+		logger.LogToFile(err_string)
+		ws.SendFatalMsg(err_string)
 
-	// Iterate over buff and append content to the slice
-	var allText []string
+		return errors.New(err_string)
+	}
+
+	// We want to make sure we aren't blocking stdout
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		_, errStdout = io.Copy(stdout, stdoutPipe)
+		wg.Done()
+	}()
+
+	_, errStderr = io.Copy(stderr, stderrPipe)
+	wg.Wait()
+
+	// Pkg returns 0 on success
+	if err := cmd.Wait(); err != nil {
+		pkg.DestroyMdDev()
+		err_string := fmt.Sprintf(
+			"Failed pkg upgrade:\n%s\n", string(stderrBuf.Bytes()),
+		)
+		logger.LogToFile(err_string)
+		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
+	}
+
+	if errStdout != nil || errStderr != nil {
+		pkg.DestroyMdDev()
+		err_string := "Failed to capture stdout or stderr\n"
+		logger.LogToFile(err_string)
+		ws.SendFatalMsg(err_string)
+
+		return errors.New(err_string)
+	}
+
+	bufStdout := strings.NewReader(string(stdoutBuf.Bytes()))
+	buff := bufio.NewScanner(bufStdout)
+
+	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
 		ws.SendInfoMsg(line)
 		logger.LogToFile("pkg: " + line)
-		allText = append(allText, line+"\n")
 	}
-	// Pkg returns 0 on sucess
-	if err := cmd.Wait(); err != nil {
-		pkg.DestroyMdDev()
-		logger.LogToFile("Failed pkg upgrade!")
-		ws.SendFatalMsg("Failed pkg upgrade!")
-	}
+
 	ws.SendInfoMsg("Finished stage package update")
 	logger.LogToFile("FinishedPackageUpdate\n-----------------------")
 
@@ -594,7 +668,7 @@ func updateincremental(force bool) {
 			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 			"set", "-y", "-A", "00", critpkg[i],
 		)
-		fullout, err = pkgcmd.CombinedOutput()
+		fullout, _ = pkgcmd.CombinedOutput()
 		ws.SendInfoMsg(string(fullout))
 		logger.LogToFile(string(fullout))
 	}
@@ -604,10 +678,12 @@ func updateincremental(force bool) {
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 		"autoremove", "-y",
 	)
-	fullout, err = pkgcmd.CombinedOutput()
+	// err isn't used
+	fullout, _ = pkgcmd.CombinedOutput()
 	ws.SendInfoMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
+	return nil
 }
 
 func startupgrade() {
@@ -619,12 +695,14 @@ func startupgrade() {
 	// If we are using standalone update need to nullfs mount the pkgs
 	doupdatefilemnt()
 
-	updateincremental(defines.FullUpdateFlag)
+	if err := updateincremental(defines.FullUpdateFlag); err != nil {
+		return
+	}
 
 	// Check if we need to do any ZFS automagic
 	sanitize_zfs()
 
-	// Update the boot-loader
+	// Update the bootloader
 	UpdateLoader(defines.STAGEDIR)
 
 	// Cleanup nullfs mount
@@ -740,12 +818,10 @@ func startfetch() error {
 	}
 	buff := bufio.NewScanner(stdout)
 
-	// Iterate over buff and append content to the slice
-	var allText []string
+	// Iterate over buff and log content
 	for buff.Scan() {
 		line := buff.Text()
 		ws.SendInfoMsg(line)
-		allText = append(allText, line+"\n")
 	}
 	// If we get a non-0 back, report the full error
 	if err := cmd.Wait(); err != nil {
@@ -765,20 +841,20 @@ func startfetch() error {
 
 func UpdateLoader(stagedir string) {
 	logger.LogToFile("Updating Bootloader\n-------------------")
-	ws.SendInfoMsg("Updating Bootloader")
+	ws.SendInfoMsg("Updating Bootloader", true)
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if isuefi(disks[i]) {
-			logger.LogToFile("Updating EFI boot-loader on: " + disks[i])
-			ws.SendInfoMsg("Updating EFI boot-loader on: " + disks[i])
+			logger.LogToFile("Updating EFI bootloader on: " + disks[i])
+			ws.SendInfoMsg("Updating EFI bootloader on: " + disks[i])
 			if !updateuefi(disks[i], stagedir) {
-				ws.SendFatalMsg("Updating boot-loader failed!")
+				ws.SendFatalMsg("Updating bootloader failed!")
 			}
 		} else {
-			logger.LogToFile("Updating GPT boot-loader on: " + disks[i])
-			ws.SendInfoMsg("Updating GPT boot-loader on: " + disks[i])
+			logger.LogToFile("Updating GPT bootloader on: " + disks[i])
+			ws.SendInfoMsg("Updating GPT bootloader on: " + disks[i])
 			if !updategpt(disks[i], stagedir) {
-				ws.SendFatalMsg("Updating boot-loader failed!")
+				ws.SendFatalMsg("Updating bootloader failed!")
 			}
 		}
 	}
@@ -810,7 +886,9 @@ func updateuefi(disk string, stagedir string) bool {
 			linearray := strings.Fields(line)
 			if len(linearray) < 3 {
 				ws.SendInfoMsg("ERROR: Unable to locate EFI partition")
-				logger.LogToFile("Unable to locate EFI partition..." + string(line))
+				logger.LogToFile(
+					"Unable to locate EFI partition..." + string(line),
+				)
 				return false
 			}
 			part := linearray[2]
@@ -1007,7 +1085,7 @@ func getzpooldisks() []string {
 		if !diskisinpool(kerndisks[i], duuids, zpool) {
 			continue
 		}
-		logger.LogToFile("Updating boot-loader on disk: " + kerndisks[i])
+		logger.LogToFile("Updating bootloader on disk: " + kerndisks[i])
 		diskarr = append(diskarr, kerndisks[i])
 	}
 	return diskarr

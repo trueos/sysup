@@ -76,7 +76,7 @@ func mountofflineupdate() {
 
 	if _, err := os.Stat(defines.UpdateFileFlag); os.IsNotExist(err) {
 		ws.SendFatalMsg(
-			"ERROR: Offline update file " + defines.UpdateFileFlag +
+			"Offline update file " + defines.UpdateFileFlag +
 				" does not exist!",
 		)
 		ws.CloseWs()
@@ -117,7 +117,7 @@ func mountofflineupdate() {
 		cmd := exec.Command("mdconfig", "-d", "-u", defines.MdDev)
 		cmd.Run()
 		ws.SendFatalMsg(
-			"ERROR: Offline update file " + defines.UpdateFileFlag +
+			"Offline update file " + defines.UpdateFileFlag +
 				" cannot be mounted",
 		)
 		defines.MdDev = ""

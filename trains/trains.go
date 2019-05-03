@@ -37,7 +37,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	//sendinfomsg("Fetching trains configuration")
 	resp, err := http.Get(defines.TrainsUrl)
 	if err != nil {
-		ws.SendFatalMsg("ERROR: Failed fetching " + defines.TrainsUrl)
+		ws.SendFatalMsg("Failed fetching " + defines.TrainsUrl)
 		return s, errors.New("ERROR")
 	}
 
@@ -55,9 +55,7 @@ func loadtrains() (defines.TrainsDef, error) {
 	//sendinfomsg("Fetching trains signature")
 	sresp, serr := http.Get(defines.TrainsUrl + ".sha1")
 	if serr != nil {
-		ws.SendFatalMsg(
-			"ERROR: Failed fetching " + defines.TrainsUrl + ".sha1",
-		)
+		ws.SendFatalMsg("Failed fetching " + defines.TrainsUrl + ".sha1")
 		return s, errors.New("ERROR")
 	}
 

@@ -111,7 +111,7 @@ func init() {
 		&BootloaderFlag,
 		"updatebootloader",
 		false,
-		"Perform one-time update of boot-loader",
+		"Perform one-time update of bootloader",
 	)
 	flag.StringVar(
 		&UpdateFileFlag,
@@ -131,7 +131,7 @@ func init() {
 		"bename",
 		"",
 		"Set the name of the new boot-environment for updating."+
-			"Must not exist yet.",
+			" Must not exist yet.",
 	)
 	flag.StringVar(
 		&CacheDirFlag,
