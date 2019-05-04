@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -18,8 +19,32 @@ import (
 	"github.com/trueos/sysup/pkg"
 	"github.com/trueos/sysup/trains"
 	"github.com/trueos/sysup/update"
+	"github.com/trueos/sysup/utils"
 	"github.com/trueos/sysup/ws"
 )
+
+// Set up the websocket address
+func setupWs() {
+	if defines.WebsocketPort == 0 {
+		port, err := utils.GetFreePort()
+
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		defines.WebsocketPort = port
+	}
+
+	// We couldn't get a free port
+	if defines.WebsocketPort == 0 {
+		log.Println("ERROR: No free port available to listen on!")
+		os.Exit(100)
+	}
+
+	defines.WebsocketAddr = defines.WebsocketIP + ":" + strconv.Itoa(
+		defines.WebsocketPort,
+	)
+}
 
 // Start the websocket server
 func startws() {
@@ -158,6 +183,7 @@ func main() {
 
 	// Load the local config file if it exists
 	defines.LoadConfig()
+	setupWs()
 
 	if defines.BootloaderFlag {
 		connectws()

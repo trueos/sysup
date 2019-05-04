@@ -3,11 +3,11 @@ System Update utility written in GO for TrueOS, FreeNAS, TrueView and related pr
 
 # Command-line Usage and Details
 ## Full lists of options
-* `sysup [-websocket] [-websocket-addr <address>]` : Start a system-wide websocket backend
-* `sysup [-websocket-addr <address>] -check [-updatefile <img file> [-updatekey <keyfile>]]` : Check for updates
-* `sysup [-websocket-addr <address>] [-update | -fullupdate] [-disablebootstrap] [-bename <name>] [-updatefile <img file> [-updatekey <keyfile>]]` : Start updates
-* `sysup [-websocket-addr <address>] -list-trains` : List the available package trains
-* `sysup [-websocket-addr <address>] -change-train <train-name>` : Change to a different package train
+* `sysup [-websocket] [-addr <address>]` : Start a system-wide websocket backend
+* `sysup [-addr <address>] [-port <port>] -check [-updatefile <img file> [-updatekey <keyfile>]]` : Check for updates
+* `sysup [-addr <address>] [-port <port>] [-update | -fullupdate] [-disablebootstrap] [-bename <name>] [-updatefile <img file> [-updatekey <keyfile>]]` : Start updates
+* `sysup [-addr <address>] [-port <port>] -list-trains` : List the available package trains
+* `sysup [-addr <address>] [-port <port>] -change-train <train-name>` : Change to a different package train
 
 ## Typical Examples
 - General Usage:
@@ -61,10 +61,13 @@ These arguments are add-ons for the "-update" argument and are typically not nee
 ###  Daemonizing the updater
 - **-websocket**
    - Startup a websocket service for direct API access and events
-   - This is a primary argument that should not be combined with any other flags except possibly `-addr`
-- **-websocket-addr ADDRESS**
-   - Websocket service address (IP:portnumber). This is a general option for all primary arguments to allow it to talk to a currently-running websocket service
-   - Default value: "127.0.0.1:8134"
+   - This is a primary argument that should not be combined with any other flags except possibly `-addr` and `-port`
+- **-addr ADDRESS**
+   - Websocket service IP address. This is a general option for all primary arguments to allow it to talk to a currently-running websocket service
+   - Default value: "127.0.0.1"
+- **-port PORT**
+  - Websocket service port. This is a general option for all primary arguments to allow it to talk to a currently-running websocket service
+  - Default value: "8134"
    
 # TRAINS
 sysup adds the ability to define package "trains". These are basically parallel package repos that might be running at different update intervals or different package configurations (as determined by the package repo maintainer(s)). Trains are considered an optional feature and are not required for single-repository update functionality.
