@@ -80,15 +80,16 @@ func DoUpdate(message []byte) {
 		startfetch()
 	}
 
-	// Make sure we actually want to perform the update and bootstrap
-	perfomBSUpdate := details.SysUp &&
-		!defines.DisableBsFlag &&
-		!defines.FetchOnlyFlag
+	// User does not want to apply updates
+	if defines.FetchOnlyFlag {
+		return
+	}
+
 	// If we have a sysup package we intercept here, do boot-strap and
 	// Then restart the update with the fresh binary on a new port
 	//
 	// Skip if the disablebsflag is set
-	if perfomBSUpdate {
+	if details.SysUp && !defines.DisableBsFlag {
 		logger.LogToFile("Performing bootstrap")
 		dosysupbootstrap()
 		dopassthroughupdate()
@@ -96,10 +97,8 @@ func DoUpdate(message []byte) {
 		return
 	}
 
-	if !defines.FetchOnlyFlag {
-		// Start the upgrade
-		startupgrade()
-	}
+	// Start the upgrade
+	startupgrade()
 }
 
 // This is called after a sysup boot-strap has taken place
