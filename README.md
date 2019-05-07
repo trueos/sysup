@@ -47,6 +47,8 @@ sysup allows for the possibility of offline updates via an image file containing
    
 ### Additional Update Options
 These arguments are add-ons for the "-update" argument and are typically not needed for standard use
+- **-fetch-only**
+   - Skip the applying of updates and the sysup bootstrap update. Useful for debugging.
 - **-disablebootstrap**
    - Skip the update of SysUp port. This is used for running locally built SysUp and testing.
 - **-bename NAME**
