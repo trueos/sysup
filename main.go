@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"os/user"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -124,6 +125,15 @@ func readws(w http.ResponseWriter, r *http.Request) {
 			log.Println("Warning: Invalid JSON message received")
 			log.Println(err)
 		}
+
+		// We don't care about casing
+		env.Method = strings.ToLower(env.Method)
+
+		// A few ways to say die
+		if env.Method == "quit" || env.Method == "exit" {
+			env.Method = "shutdown"
+		}
+
 		switch env.Method {
 		case "check":
 			pkg.CheckForUpdates()
@@ -136,6 +146,9 @@ func readws(w http.ResponseWriter, r *http.Request) {
 		case "updatebootloader":
 			update.UpdateLoader("")
 			ws.SendMsg("Finished bootloader process", "updatebootloader")
+		case "shutdown":
+			ws.SendMsg("Shutting down sysup", "shutdown")
+			os.Exit(0)
 		default:
 			log.Println("Uknown JSON Method:", env.Method)
 		}
