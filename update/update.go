@@ -74,6 +74,9 @@ func DoUpdate(message []byte) {
 		defines.FullUpdateFlag = true
 	}
 
+	// Check if we are moving from pre-flavor pkg base to flavors
+	checkflavorswitch()
+
 	// Start downloading our files if we aren't doing stand-alone upgrade
 	if defines.UpdateFileFlag == "" {
 		logger.LogToFile("Fetching file updates")
@@ -443,6 +446,89 @@ func cleanup_zol_port() {
 	)
 }
 
+func checkflavorswitch() {
+
+	// Does the new pkg repo have os-generic-userland flavorized package
+	cmd := exec.Command(
+		defines.PKGBIN, "-C", defines.PkgConf,
+		"rquery", "-U", "%v", "os-generic-userland",
+	)
+	err := cmd.Run()
+	if err != nil {
+		return
+	}
+
+	// We have flavorized package, lets see if we are still using the
+	// old non-flavor version still
+	cmd = exec.Command(defines.PKGBIN, "query", "%v", "userland")
+	err = cmd.Run()
+	if err != nil {
+		// We are not using the old, we can safely return now
+		return
+	}
+
+	// Update the old style base packages to their flavor versions
+	if _, err := os.Stat(
+		"/boot/kernel/zfs.ko",
+	); os.IsNotExist(err) {
+		// Switch to a ZOL base flavor
+		ws.SendMsg("Switching to ZOL base flavor")
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland:os-zol-userland", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-base:os-zol-userland-base", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-debug:os-zol-userland-debug", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-docs:os-zol-userland-docs", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-lib32:os-zol-userland-lib32", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-tests:os-zol-userland-tests", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel:os-zol-kernel", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel-debug:os-zol-kernel-debug", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel-debug-symbols:os-zol-kernel-debug-symbols", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel-symbols:os-zol-kernel-symbols", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "buildkernel:os-zol-buildkernel", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "buildworld:os-zol-buildworld", "-y")
+		err = cmd.Run()
+	} else {
+		// Switch to a GENERIC base flavor
+		ws.SendMsg("Switching to GENERIC base flavor")
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland:os-generic-userland", "--yes")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-base:os-generic-userland-base", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-debug:os-generic-userland-debug", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-docs:os-generic-userland-docs", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-lib32:os-generic-userland-lib32", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "userland-tests:os-generic-userland-tests", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel:os-generic-kernel", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel-debug:os-generic-kernel-debug", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel-debug-symbols:os-generic-kernel-debug-symbols", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "kernel-symbols:os-generic-kernel-symbols", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "buildkernel:os-generic-buildkernel", "-y")
+		err = cmd.Run()
+		cmd = exec.Command(defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name", "buildworld:os-generic-buildworld", "-y")
+		err = cmd.Run()
+
+	}
+
+}
+
 func checkbaseswitch() {
 
 	// Does the new pkg repo have os/userland port origin
@@ -575,8 +661,9 @@ func updateincremental(force bool) error {
 
 	// Check if we are moving from legacy pkg base to ports-base
 	checkbaseswitch()
-	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
 
+	// Make sure the BE has a valid resolv.conf
+	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
 	_, err := utils.Copyfile("/etc/resolv.conf", resolv_dest)
 	if err != nil {
 		err_string := fmt.Sprintf(
@@ -890,7 +977,7 @@ func startfetch() error {
 
 func UpdateLoader(stagedir string) {
 	logger.LogToFile("Updating Bootloader\n-------------------")
-	ws.SendMsg("Updating Bootloader", "updatebootloader")
+	ws.SendMsg("Updating Bootloader")
 	disks := getzpooldisks()
 	for i, _ := range disks {
 		if isuefi(disks[i]) {
@@ -1119,6 +1206,7 @@ func getzpooldisks() []string {
 	zpool := getzfspool()
 	kernout, kerr := syscall.Sysctl("kern.disks")
 	if kerr != nil {
+		logger.LogToFile("ERROR: Failed getting kern.disks")
 		log.Fatal(kerr)
 	}
 	kerndisks := strings.Split(string(kernout), " ")
