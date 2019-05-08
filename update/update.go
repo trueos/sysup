@@ -463,7 +463,8 @@ func checkFlavorSwitch() {
 		// We are not using the old, we can safely return now
 		return
 	}
-	pkgSlice := make([]string, 12)
+
+	var pkgSlice []string
 	pkgArgs := []string{
 		defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name",
 	}
@@ -512,13 +513,14 @@ func checkFlavorSwitch() {
 
 	for _, pkg := range pkgSlice {
 		args := append(pkgArgs, pkg, "-y")
-		if stderr, err := exec.Command(
+
+		if out, err := exec.Command(
 			args[0], args[1:]...,
 		).CombinedOutput(); err != nil {
 			ws.SendMsg(
-				pkg+" failed to install! Error:\n"+string(stderr), "fatal",
+				pkg+" failed to install! Error:\n"+string(out), "fatal",
 			)
-			log.Fatal(stderr)
+			log.Fatal(out)
 		}
 	}
 }
