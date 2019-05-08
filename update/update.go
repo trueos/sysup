@@ -39,6 +39,7 @@ func DoUpdate(message []byte) {
 	defines.DisableBsFlag = s.Disablebs
 	defines.UpdateFileFlag = s.Updatefile
 	defines.UpdateKeyFlag = s.Updatekey
+	defines.FetchOnlyFlag = s.Fetchonly
 	//log.Println("benameflag: " + benameflag)
 	//log.Println("updatefile: " + updatefileflag)
 
@@ -79,20 +80,25 @@ func DoUpdate(message []byte) {
 		startfetch()
 	}
 
+	// User does not want to apply updates
+	if defines.FetchOnlyFlag {
+		return
+	}
+
 	// If we have a sysup package we intercept here, do boot-strap and
 	// Then restart the update with the fresh binary on a new port
 	//
 	// Skip if the disablebsflag is set
-	if details.SysUp && defines.DisableBsFlag != true {
+	if details.SysUp && !defines.DisableBsFlag {
 		logger.LogToFile("Performing bootstrap")
 		dosysupbootstrap()
 		dopassthroughupdate()
+
 		return
 	}
 
 	// Start the upgrade
 	startupgrade()
-
 }
 
 // This is called after a sysup boot-strap has taken place

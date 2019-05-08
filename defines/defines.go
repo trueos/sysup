@@ -70,6 +70,7 @@ var WebsocketFlag bool
 var WebsocketIP string
 var WebsocketPort int
 var WebsocketAddr string
+var FetchOnlyFlag bool
 
 func init() {
 	flag.BoolVar(
@@ -159,6 +160,13 @@ func init() {
 		8134,
 		"Port to use when in server mode",
 	)
+	flag.BoolVar(
+		&FetchOnlyFlag,
+		"fetch-only",
+		false,
+		"Instruct update to only fetch the updates, not apply them.",
+	)
+
 	flag.Parse()
 }
 
@@ -272,6 +280,7 @@ type SendReq struct {
 	Train      string `json:"train"`
 	Updatefile string `json:"updatefile"`
 	Updatekey  string `json:"updatekey"`
+	Fetchonly  bool   `json:"fetchonly"`
 }
 
 //----------------------------------------------------
