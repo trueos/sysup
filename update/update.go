@@ -16,11 +16,9 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 )
 
 func DoUpdate(message []byte) {
@@ -832,28 +830,32 @@ func startupgrade() {
 }
 
 func renamebe() {
-	curdate := time.Now()
-	year := curdate.Year()
-	month := int(curdate.Month())
-	day := curdate.Day()
-	hour := curdate.Hour()
-	min := curdate.Minute()
-	sec := curdate.Second()
-
-	BENAME := strconv.Itoa(year) +
-		"-" +
-		strconv.Itoa(month) +
-		"-" +
-		strconv.Itoa(day) +
-		"-" +
-		strconv.Itoa(hour) +
-		"-" +
-		strconv.Itoa(min) +
-		"-" +
-		strconv.Itoa(sec)
+	BENAME := defines.BESTAGE
+	location := "/etc/version"
 
 	if defines.BeNameFlag != "" {
 		BENAME = defines.BeNameFlag
+	} else {
+		// If /etc/version exists we will use that instead of a date
+		_, err := os.Stat(location)
+
+		if os.IsNotExist(err) {
+			// TrueOS
+			location = "/etc/base_version"
+			_, err = os.Stat(location)
+		}
+
+		if !os.IsNotExist(err) {
+			version, err := ioutil.ReadFile(location)
+
+			if err != nil {
+				logger.LogToFile("Failed reading " + location)
+				ws.SendMsg("Failed reading: "+location, "fatal")
+				log.Fatal(err)
+			}
+
+			BENAME = string(bytes.Fields(version)[0])
+		}
 	}
 
 	// Start by unmounting BE
@@ -876,12 +878,14 @@ func renamebe() {
 	}
 
 	// Now rename BE
-	cmd = exec.Command("beadm", "rename", defines.BESTAGE, BENAME)
-	err = cmd.Run()
-	if err != nil {
-		logger.LogToFile("Failed beadm rename")
-		ws.SendMsg("Failed renaming: "+BENAME, "fatal")
-		log.Fatal(err)
+	if BENAME != defines.BESTAGE {
+		cmd = exec.Command("beadm", "rename", defines.BESTAGE, BENAME)
+		err = cmd.Run()
+		if err != nil {
+			logger.LogToFile("Failed beadm rename")
+			ws.SendMsg("Failed renaming: "+BENAME, "fatal")
+			log.Fatal(err)
+		}
 	}
 
 	// beadm requires this to exist
@@ -910,18 +914,14 @@ func renamebe() {
 * log file and reboot into the old BE for later debugging
  */
 func copylogexit(perr error, text string) {
+	exec.Command("cp", defines.LogFile, "/var/log/sysup.failed").Run()
 
+	ws.SendMsg("Aborting", "fatal")
 	logger.LogToFile("FAILED Upgrade!!!")
 	logger.LogToFile(perr.Error())
 	logger.LogToFile(text)
 	log.Println(text)
-
-	src := defines.LogFile
-	dest := "/var/log/updatego.failed"
-	cpCmd := exec.Command("cp", src, dest)
-	cpCmd.Run()
-
-	ws.SendMsg("Aborting", "fatal")
+	log.Fatal(perr)
 }
 
 func startfetch() error {
