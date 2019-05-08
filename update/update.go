@@ -92,8 +92,11 @@ func DoUpdate(message []byte) {
 	if details.SysUp && !defines.DisableBsFlag {
 		logger.LogToFile("Performing bootstrap")
 		dosysupbootstrap()
-		dopassthroughupdate()
+		err := dopassthroughupdate()
 
+		if err != nil {
+			log.Fatalln(err)
+		}
 		return
 	}
 
@@ -105,7 +108,7 @@ func DoUpdate(message []byte) {
 //
 // We will restart the sysup daemon on a new port and continue
 // with the same update as previously requested
-func dopassthroughupdate() {
+func dopassthroughupdate() error {
 	var fuflag string
 	if defines.FullUpdateFlag {
 		fuflag = "-fullupdate"
@@ -128,12 +131,11 @@ func dopassthroughupdate() {
 	if defines.UpdateKeyFlag != "" {
 		ukeyflag = "-updatekey=" + defines.UpdateKeyFlag
 	}
-	var wsflag string
-	wsflag = "-addr=127.0.0.1:8135"
 
 	// Start the newly updated sysup binary, passing along our previous flags
 	//upflags := fuflag + " " + upflag + " " + beflag + " " + ukeyflag
-	cmd := exec.Command("sysup", wsflag, "-update")
+	cmd := exec.Command("sysup", "-port=0", "-update")
+
 	if fuflag != "" {
 		cmd.Args = append(cmd.Args, fuflag)
 	}
@@ -149,29 +151,46 @@ func dopassthroughupdate() {
 	if ukeyflag != "" {
 		cmd.Args = append(cmd.Args, ukeyflag)
 	}
-	logger.LogToFile(
-		"Running bootstrap with flags: " + strings.Join(cmd.Args, " "),
-	)
+
+	bsMsg := "Running bootstrap with flags: " + strings.Join(cmd.Args, " ")
+	logger.LogToFile(bsMsg)
+	ws.SendMsg(bsMsg)
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
 	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
 	buff := bufio.NewScanner(stdout)
 
-	// Iterate over buff and report back to listeners
+	// Iterate over buff and log content
 	for buff.Scan() {
-		ws.SendMsg(buff.Text())
+		line := buff.Text()
+		ws.SendMsg(line)
 	}
-	// Sysup returns 0 on sucess
+	// If we get a non-0 back, report the full error
 	if err := cmd.Wait(); err != nil {
-		ws.SendMsg("Failed update!", "fatal")
+		errbuf, _ := ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			logger.LogToFile(errarr[i])
+			ws.SendMsg(errarr[i])
+		}
+		ws.SendMsg("Failed sysup bootstrap!", "fatal")
+		return err
 	}
 
 	// Let our local clients know they can finish up
 	ws.SendMsg("", "shutdown")
+
+	return nil
 }
 
 func doupdatefileumnt(prefix string) {
@@ -759,6 +778,17 @@ func renamebe() {
 	err := cmd.Run()
 	if err != nil {
 		logger.LogToFile("Failed beadm umount -f")
+		ws.SendMsg("Failed unmounting: "+defines.BESTAGE, "fatal")
+		log.Fatal(err)
+	}
+
+	// Now mount BE
+	cmd = exec.Command("beadm", "mount", defines.BESTAGE, "/var/tmp/"+BENAME)
+	err = cmd.Run()
+
+	if err != nil {
+		logger.LogToFile("Failed beadm mount")
+		ws.SendMsg("Failed mounting: "+defines.BESTAGE, "fatal")
 		log.Fatal(err)
 	}
 
@@ -767,7 +797,18 @@ func renamebe() {
 	err = cmd.Run()
 	if err != nil {
 		logger.LogToFile("Failed beadm rename")
+		ws.SendMsg("Failed renaming: "+BENAME, "fatal")
 		log.Fatal(err)
+	}
+
+	// beadm requires this to exist
+	loaderConf := "/var/tmp/" + BENAME + "/boot/loader.conf"
+	cmd = exec.Command("touch", loaderConf)
+	err = cmd.Run()
+	if err != nil {
+		logger.LogToFile("Failed touching " + loaderConf)
+		ws.SendMsg("Failed touching: " + loaderConf)
+		log.Fatal("Failed touching: " + loaderConf)
 	}
 
 	// Lastly setup a boot of this new BE
@@ -775,6 +816,7 @@ func renamebe() {
 	err = cmd.Run()
 	if err != nil {
 		logger.LogToFile("Failed beadm activate")
+		ws.SendMsg("Failed activating: "+BENAME, "fatal")
 		log.Fatal("Failed activating: " + BENAME)
 	}
 
