@@ -3,6 +3,9 @@ package defines
 import (
 	"flag"
 	"github.com/gorilla/websocket"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var Updater = websocket.Upgrader{} // use default options
@@ -48,7 +51,18 @@ var AbiOverride = ""
 // Boot-Environment defaults
 //----------------------------------------------------
 var BEBIN = "beadm"
-var BESTAGE = "updatego-stage"
+var curDate = time.Now()
+
+// We want the int representations of these
+var BESTAGE = strings.Join([]string{
+	strconv.Itoa(curDate.Year()),
+	strconv.Itoa(int(curDate.Month())),
+	strconv.Itoa(curDate.Day()),
+	strconv.Itoa(curDate.Hour()),
+	strconv.Itoa(curDate.Minute()),
+	strconv.Itoa(curDate.Second()),
+}, "-")
+
 var STAGEDIR = "/.updatestage"
 
 //----------------------------------------------------
