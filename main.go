@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/trueos/sysup/client"
 	"github.com/trueos/sysup/defines"
+	"github.com/trueos/sysup/logger"
 	"github.com/trueos/sysup/pkg"
 	"github.com/trueos/sysup/trains"
 	"github.com/trueos/sysup/update"
@@ -48,26 +49,22 @@ func setupWs() {
 }
 
 // Start the websocket server
-func startws() {
+func startws(done chan bool) {
 	log.SetFlags(0)
 	http.HandleFunc("/ws", readws)
 
-	// This isn't applicable when they aren't invoking sysup as a server
-	if defines.WebsocketFlag {
-		log.Println("Listening on", defines.WebsocketAddr)
+	if err := http.ListenAndServe(defines.WebsocketAddr, nil) ; err != nil {
+        logger.LogToFile("ERROR: " + err.Error())
+        log.Fatal(err)
 	}
 
-	//Make this non-fatal so it can be run every time (will fail *instantly*
-	//if a websocket is already running on that address)
-	http.ListenAndServe(defines.WebsocketAddr, nil)
-
-	//log.Fatal(http.ListenAndServe(*addr, nil))
+	done <- true
 }
 
-func connectws() {
+func connectws(done chan bool) {
 	//Try (and fail as needed) to get the websocket started
 	// This will instantly fail if a websocket server is already running there
-	go startws()
+	go startws(done)
 	log.SetFlags(0)
 
 	interrupt := make(chan os.Signal, 1)
@@ -196,45 +193,54 @@ func main() {
 
 	// Load the local config file if it exists
 	defines.LoadConfig()
+	done := make(chan bool)
 	setupWs()
 
 	if defines.BootloaderFlag {
-		connectws()
+		connectws(done)
 		client.UpdateBootLoader()
 		ws.CloseWs()
+		<-done
 		os.Exit(0)
 	}
 
 	if defines.ListTrainFlag {
-		connectws()
+		connectws(done)
 		client.ListTrains()
 		ws.CloseWs()
+		<-done
 		os.Exit(0)
 	}
 
 	if defines.ChangeTrainFlag != "" {
-		connectws()
+		connectws(done)
 		client.SetTrain()
 		ws.CloseWs()
+		<-done
 		os.Exit(0)
 	}
 
 	if defines.CheckFlag {
-		connectws()
+		connectws(done)
 		client.StartCheck()
 		ws.CloseWs()
+		<-done
 		os.Exit(0)
 	}
 
 	if defines.UpdateFlag || defines.FullUpdateFlag {
-		connectws()
+		connectws(done)
 		client.StartUpdate()
 		ws.CloseWs()
+		<-done
 		os.Exit(0)
 	}
 
 	if defines.WebsocketFlag {
-		startws()
+		go startws(done)
+		log.Println("Listening on", defines.WebsocketAddr)
+		logger.LogToFile("Listening on " + defines.WebsocketAddr)
+		<-done
 		os.Exit(0)
 	}
 }
