@@ -180,7 +180,7 @@ func dopassthroughupdate() error {
 	if err := cmd.Wait(); err != nil {
 		errbuf, _ := ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
-		for i, _ := range errarr {
+		for i := range errarr {
 			logger.LogToFile(errarr[i])
 			ws.SendMsg(errarr[i])
 		}
@@ -256,7 +256,7 @@ func dosysupbootstrap() {
 		ws.SendMsg(line)
 		logger.LogToFile(line)
 	}
-	// Pkg returns 0 on sucess
+	// Pkg returns 0 on success
 	if err := cmd.Wait(); err != nil {
 		ws.SendMsg("Failed sysup update!", "fatal")
 	}
@@ -429,11 +429,11 @@ func cleanup_zol_port() {
 		ws.SendMsg(line)
 		logger.LogToFile(line)
 	}
-	// Pkg returns 0 on sucess
+	// Pkg returns 0 on success
 	if err := cmd.Wait(); err != nil {
 		errbuf, _ := ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
-		for i, _ := range errarr {
+		for i := range errarr {
 			ws.SendMsg(errarr[i])
 			logger.LogToFile(errarr[i])
 		}
@@ -572,7 +572,7 @@ func checkbaseswitch() {
 
 	basepkgs := strings.TrimSpace(string(output))
 	barr := strings.Split(basepkgs, "\n")
-	for i, _ := range barr {
+	for i := range barr {
 		// Unset vital flag
 		ws.SendMsg("Removing: " + barr[i])
 		logger.LogToFile("Removing: " + barr[i])
@@ -614,7 +614,7 @@ func checkbaseswitch() {
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 		"install", "-U", "-y", "os/userland", "os/kernel",
 	)
-	fullout, err := pkgcmd.CombinedOutput()
+	fullout, _ := pkgcmd.CombinedOutput()
 	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
@@ -622,7 +622,7 @@ func checkbaseswitch() {
 	pkgcmd = exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C",
 		defines.PkgConf, "install", "-U", "-y", "ports-mgmt/pkg",
 	)
-	fullout, err = pkgcmd.CombinedOutput()
+	fullout, _ = pkgcmd.CombinedOutput()
 	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 
@@ -641,7 +641,7 @@ func checkbaseswitch() {
 	pkgcmd = exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C",
 		defines.PkgConf, "set", "-y", "-A", "00", "sysutils/sysup",
 	)
-	fullout, err = pkgcmd.CombinedOutput()
+	fullout, _ = pkgcmd.CombinedOutput()
 	ws.SendMsg(string(fullout))
 	logger.LogToFile(string(fullout))
 }
@@ -769,7 +769,7 @@ func updateincremental(force bool) error {
 
 	// Mark essential pkgs
 	critpkg := []string{"ports-mgmt/pkg", "os/userland", "os/kernel"}
-	for i, _ := range critpkg {
+	for i := range critpkg {
 		pkgcmd = exec.Command(
 			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
 			"set", "-y", "-A", "00", critpkg[i],
@@ -959,7 +959,7 @@ func startfetch() error {
 	if err := cmd.Wait(); err != nil {
 		errbuf, _ := ioutil.ReadAll(stderr)
 		errarr := strings.Split(string(errbuf), "\n")
-		for i, _ := range errarr {
+		for i := range errarr {
 			logger.LogToFile(errarr[i])
 			ws.SendMsg(errarr[i])
 		}
@@ -975,7 +975,7 @@ func UpdateLoader(stagedir string) {
 	logger.LogToFile("Updating Bootloader\n-------------------")
 	ws.SendMsg("Updating Bootloader")
 	disks := getzpooldisks()
-	for i, _ := range disks {
+	for i := range disks {
 		if isuefi(disks[i]) {
 			logger.LogToFile("Updating EFI bootloader on: " + disks[i])
 			ws.SendMsg("Updating EFI bootloader on: " + disks[i])
@@ -1206,7 +1206,7 @@ func getzpooldisks() []string {
 		log.Fatal(kerr)
 	}
 	kerndisks := strings.Split(string(kernout), " ")
-	for i, _ := range kerndisks {
+	for i := range kerndisks {
 		// Yes, CD's show up in this output..
 		if strings.Index(kerndisks[i], "cd") == 0 {
 			continue
@@ -1244,7 +1244,7 @@ func diskisinpool(disk string, uuids []string, zpool string) bool {
 		if strings.Contains(line, " "+disk+"p") {
 			return true
 		}
-		for i, _ := range uuids {
+		for i := range uuids {
 			if strings.Contains(line, " gptid/"+uuids[i]) {
 				return true
 			}
@@ -1274,7 +1274,7 @@ func getdiskuuids(disk string) []string {
 		line := buff.Text()
 		uuidarr = append(uuidarr, line)
 	}
-	// Pkg returns 0 on sucess
+	// Pkg returns 0 on success
 	if err := cmd.Wait(); err != nil {
 		log.Fatal(err)
 	}

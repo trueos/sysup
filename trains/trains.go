@@ -196,7 +196,7 @@ func createnewpkgconf(train defines.TrainDef) {
 
 	// Write the new key file
 	var kdata []string
-	for i, _ := range train.PkgKey {
+	for i := range train.PkgKey {
 		kdata = append(kdata, train.PkgKey[i])
 	}
 	ioutil.WriteFile(
@@ -239,7 +239,7 @@ func DoSetTrain(message []byte) {
 
 	var foundt = -1
 	trains := trainlist.Trains
-	for i, _ := range trains {
+	for i := range trains {
 		if trains[i].Name == newtrain {
 			foundt = i
 			break

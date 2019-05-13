@@ -16,12 +16,12 @@ func printtrains(trains []defines.TrainDef, deftrain string) {
 	log.Println(
 		"------------------------------------------------------------------",
 	)
-	for i, _ := range trains {
+	for i := range trains {
 		log.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
 		if trains[i].Deprecated {
 			log.Printf(" [Deprecated]")
 		}
-		for j, _ := range trains[i].Tags {
+		for j := range trains[i].Tags {
 			log.Printf(" [%s]", trains[i].Tags[j])
 		}
 		log.Printf("\n")
@@ -251,7 +251,7 @@ func printupdatedetails(details defines.UpdateInfo) {
 
 	log.Println("The following packages will be updated:")
 	log.Println("----------------------------------------------------")
-	for i, _ := range details.Up {
+	for i := range details.Up {
 		log.Println(
 			"   " + details.Up[i].Name + " " + details.Up[i].OldVersion +
 				" -> " + details.Up[i].NewVersion,
@@ -261,21 +261,21 @@ func printupdatedetails(details defines.UpdateInfo) {
 	log.Println()
 	log.Println("The following packages will be installed:")
 	log.Println("----------------------------------------------------")
-	for i, _ := range details.New {
+	for i := range details.New {
 		log.Println("   " + details.New[i].Name + " " + details.New[i].Version)
 	}
 
 	log.Println()
 	log.Println("The following packages will be reinstalled:")
 	log.Println("----------------------------------------------------")
-	for i, _ := range details.Ri {
+	for i := range details.Ri {
 		log.Println("   " + details.Ri[i].Name + " " + details.Ri[i].Reason)
 	}
 
 	log.Println()
 	log.Println("The following packages will be removed:")
 	log.Println("----------------------------------------------------")
-	for i, _ := range details.Del {
+	for i := range details.Del {
 		log.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
 	}
 }

@@ -63,7 +63,7 @@ func GetRemoteOsVer() (string, error) {
 			return string(strarray[1]), nil
 		}
 	}
-	return "", fmt.Errorf("Failed to get FreeBSD_version", allText)
+	return "", fmt.Errorf("Failed to get FreeBSD_version %s", allText)
 }
 
 func mountofflineupdate() {
@@ -286,7 +286,7 @@ func UpdateDryRun(sendupdate bool) (*defines.UpdateInfo, bool, error) {
 		allText = append(allText, buff.Text()+"\n")
 	}
 	//log.Println(allText)
-	// Pkg returns 0 on sucess and 1 on updates needed
+	// Pkg returns 0 on success and 1 on updates needed
 	//if err := cmd.Wait(); err != nil {
 	//	log.Fatal(err)
 	//}
@@ -404,7 +404,7 @@ func ParseUpdateData(uptext []string) *defines.UpdateInfo {
 	details.KernelPkg = kernel
 	details.KernelUp = false
 	log.Println("Kernel: " + kernel)
-	for i, _ := range details.Up {
+	for i := range details.Up {
 		if details.Up[i].Name == kernel {
 			// Set JSON details on the kernel update
 			details.KernelUp = true
@@ -415,7 +415,7 @@ func ParseUpdateData(uptext []string) *defines.UpdateInfo {
 	// Check if we have a SysUp package to update
 	details.SysUpPkg = ""
 	details.SysUp = false
-	for i, _ := range details.Up {
+	for i := range details.Up {
 		if details.Up[i].Name == "sysup" {
 			// Set JSON details on the sysup package
 			details.SysUp = true

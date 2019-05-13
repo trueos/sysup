@@ -53,9 +53,9 @@ func startws(done chan bool) {
 	log.SetFlags(0)
 	http.HandleFunc("/ws", readws)
 
-	if err := http.ListenAndServe(defines.WebsocketAddr, nil) ; err != nil {
-        logger.LogToFile("ERROR: " + err.Error())
-        log.Fatal(err)
+	if err := http.ListenAndServe(defines.WebsocketAddr, nil); err != nil {
+		logger.LogToFile("ERROR: " + err.Error())
+		log.Fatal(err)
 	}
 
 	done <- true

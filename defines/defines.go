@@ -116,7 +116,7 @@ func init() {
 		&ChangeTrainFlag,
 		"change-train",
 		"",
-		"Change to the specifed new train",
+		"Change to the specified new train",
 	)
 	flag.BoolVar(
 		&FullUpdateFlag,
