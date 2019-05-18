@@ -523,6 +523,56 @@ func checkFlavorSwitch() {
 	}
 }
 
+func checkbasebootstrapswitch() {
+	// Dirty work-around to a bug in pkg today
+	//
+	// Can be removed at a later date when pkg handles more gracefully
+	// new pkg depends coming into the runtime, which contain files that
+	// previously existed in current pkgs
+
+	// Does the new pkg repo have os/userland-base-bootstrap port origin
+	cmd := exec.Command(
+		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+		"rquery", "-U", "%v", "os/userland-base-bootstrap",
+	)
+	err := cmd.Run()
+	if err != nil {
+		return
+	}
+
+	// We have os/userland remote, lets see if we are using it already locally
+	cmd = exec.Command(defines.PKGBIN, "query", "%v", "os/userland-base-bootstrap")
+	err = cmd.Run()
+	if err == nil {
+		return
+	}
+
+	// No? Lets prepare to move to this broken out base pkg
+	// Files to remove from pkg sql database
+	var conflictfiles []string
+	conflictfiles = append(conflictfiles, "/libexec/ld-elf.so.1")
+	conflictfiles = append(conflictfiles, "/libexec/ld-elf32.so.1")
+	conflictfiles = append(conflictfiles, "/usr/lib/libc.so")
+	conflictfiles = append(conflictfiles, "/usr/lib/libm.so")
+	conflictfiles = append(conflictfiles, "/usr/lib/libthr.so")
+	conflictfiles = append(conflictfiles, "/lib/libc.so.7")
+	conflictfiles = append(conflictfiles, "/lib/libm.so.5")
+	conflictfiles = append(conflictfiles, "/lib/libthr.so.3")
+
+	// Go through and do database surgery now....
+	for i := range conflictfiles {
+		cmd := exec.Command(
+			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+			"shell", "DELETE from files where path = '"+conflictfiles[i]+"';",
+		)
+		err := cmd.Run()
+		if err != nil {
+			ws.SendMsg("Failed removing pkg db entry: "+conflictfiles[i], "")
+		}
+
+	}
+}
+
 func checkbaseswitch() {
 
 	// Does the new pkg repo have os/userland port origin
@@ -655,6 +705,9 @@ func updateincremental(force bool) error {
 
 	// Check if we are moving from legacy pkg base to ports-base
 	checkbaseswitch()
+
+	// Check if we needto cleanup move to new bootstrap clibs
+	checkbasebootstrapswitch()
 
 	// Make sure the BE has a valid resolv.conf
 	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
