@@ -832,6 +832,36 @@ func updateincremental(force bool) error {
 		logger.LogToFile(string(fullout))
 	}
 
+	// Regen login.conf db
+	dbcmd := exec.Command(
+		"cap_mkdb", "-l", "-f", defines.STAGEDIR+"/etc/login.conf.db",
+		defines.STAGEDIR+"/etc/login.conf",
+	)
+	// err isn't used
+	fullout, _ = dbcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
+
+	// Regen pwd db
+	dbcmd = exec.Command(
+		"pwd_mkdb", "-i", "-p", "-d", defines.STAGEDIR+"/etc",
+		defines.STAGEDIR+"/etc/master.passwd",
+	)
+	// err isn't used
+	fullout, _ = dbcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
+
+	// Regen services db
+	dbcmd = exec.Command(
+		"services_mkdb", "-l", "-q", "-o", defines.STAGEDIR+"/var/db/services.db",
+		defines.STAGEDIR+"/etc/services",
+	)
+	// err isn't used
+	fullout, _ = dbcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
+
 	// Cleanup orphans
 	pkgcmd = exec.Command(
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
