@@ -1009,12 +1009,14 @@ func StartStage2() {
 	// Update the bootloader
 	UpdateLoader("")
 
-	// Lastly reboot into the new environment
-	cmd := exec.Command("reboot")
-	err := cmd.Run()
+	// Lastly kickoff the boot again
+	cmd := exec.Command("sh", "/etc/rc")
+	err := cmd.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	os.Exit(0)
 
 }
 
