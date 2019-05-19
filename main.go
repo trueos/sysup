@@ -183,6 +183,12 @@ func main() {
 	// Update any variable locations
 	defines.SetLocs()
 
+	// Bypass normal startup and go straight to updating
+	if defines.Stage2Flag {
+		update.StartStage2()
+		os.Exit(0)
+	}
+
 	// Capture any sigint
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -233,11 +239,6 @@ func main() {
 		client.StartUpdate()
 		ws.CloseWs()
 		<-done
-		os.Exit(0)
-	}
-
-	if defines.Stage2Flag {
-		update.StartStage2()
 		os.Exit(0)
 	}
 

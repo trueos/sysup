@@ -30,6 +30,9 @@ var TrainsUrl string
 // Default kernel pkg name
 var KernelPkg string
 
+// Are we running without WS backend
+var DisableWSMsg = false
+
 // Set our default bootstrap options
 var Bootstrap = false
 var BootstrapFatal = false

@@ -937,7 +937,6 @@ func startupgrade(kernelupdate bool) {
 
 func preparestage2() {
 	log.Println("Preparing to start update...")
-	logger.LogToFile("Preparing to start stage2 update....")
 
 	// Need to ensure ZFS is all mounted and ready
 	cmd := exec.Command("mount", "-u", "rw", "/")
@@ -989,6 +988,9 @@ func preparestage2() {
 }
 
 func StartStage2() {
+
+	// No WS server to talk to
+	defines.DisableWSMsg = true
 
 	preparestage2()
 
