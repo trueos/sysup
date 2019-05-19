@@ -31,6 +31,8 @@ Only **one** of these arguments may be used at a time.
 - **-change-train TRAIN_NAME**
    - Reconfigure the package repository files to point to the designated TRAIN_NAME.
    - ***WARNING*** This will remove *all* package repository configuration files on the system and create a single "/etc/pkg/Train.conf" file containing the configuration for the desired package train.
+- **-stage2**
+   - Start 2nd stage of update, internal usage only
    
 ## Secondary/Optional Arguments
 There are a number of secondary/optional flags that can be used for additional functionality:

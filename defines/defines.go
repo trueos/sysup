@@ -16,29 +16,32 @@ var WSClient *websocket.Conn
 var pkgflags string
 
 // What is this tool called?
-var toolname = "sysup"
+var ToolName = "sysup"
 
 // Where to log by default
-var LogFile = "/var/log/" + toolname + ".log"
+var LogFile = "/var/log/" + ToolName + ".log"
 
 // Configuration file location
-var ConfigJson = "/usr/local/etc/" + toolname + ".json"
+var ConfigJson = "/usr/local/etc/" + ToolName + ".json"
 
 // Global trains URL
 var TrainsUrl string
+
+// Default kernel pkg name
+var KernelPkg string
 
 // Set our default bootstrap options
 var Bootstrap = false
 var BootstrapFatal = false
 
 // Default pubkey used for trains
-var TrainPubKey = "/usr/local/share/" + toolname + "/trains.pub"
+var TrainPubKey = "/usr/local/share/" + ToolName + "/trains.pub"
 
 // Package defaults
 //----------------------------------------------------
 var PKGBIN = "pkg-static"
 
-var SysUpDb = "/var/db/" + toolname
+var SysUpDb = "/var/db/" + ToolName
 var PkgDb = SysUpDb + "/pkgdb"
 var ImgMnt = SysUpDb + "/mnt"
 var PkgConf = SysUpDb + "/pkg.conf"
@@ -76,6 +79,7 @@ var CheckFlag bool
 var DisableBsFlag bool
 var FullUpdateFlag bool
 var ListTrainFlag bool
+var Stage2Flag bool
 var UpdateFlag bool
 var UpdateFileFlag string
 var UpdateKeyFlag string
@@ -142,6 +146,12 @@ func init() {
 		"",
 		"Use the specified update pubkey for offline updates"+
 			" (Defaults to none)",
+	)
+	flag.BoolVar(
+		&Stage2Flag,
+		"stage2",
+		false,
+		"Start 2nd stage of updating, normally only run internally by sysup",
 	)
 	flag.StringVar(
 		&BeNameFlag,

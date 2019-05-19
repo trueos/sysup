@@ -236,6 +236,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if defines.Stage2Flag {
+		update.StartStage2()
+		os.Exit(0)
+	}
+
 	if defines.WebsocketFlag {
 		go startws(done)
 		log.Println("Listening on", defines.WebsocketAddr)

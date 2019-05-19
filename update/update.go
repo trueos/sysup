@@ -41,6 +41,12 @@ func DoUpdate(message []byte) {
 	//log.Println("benameflag: " + benameflag)
 	//log.Println("updatefile: " + updatefileflag)
 
+	// If we have been triggerd to run a full update
+	var kernelupdate = false
+	if defines.FullUpdateFlag {
+		kernelupdate = true
+	}
+
 	// Update any variable locations to use cachedirflag
 	defines.SetLocs()
 
@@ -101,8 +107,14 @@ func DoUpdate(message []byte) {
 		return
 	}
 
-	// Start the upgrade
-	startupgrade()
+	// Search if a kernel is apart of this update
+	if details.KernelUp {
+		kernelupdate = true
+	}
+	defines.KernelPkg = details.KernelPkg
+
+	// Start the upgrade with bool passed if doing kernel update
+	startupgrade(kernelupdate)
 }
 
 // This is called after a sysup boot-strap has taken place
@@ -207,7 +219,7 @@ func doupdatefileumnt(prefix string) {
 	}
 }
 
-func doupdatefilemnt() {
+func doupdatefilemnt(prefix string) {
 	// If we are using standalone update need to nullfs mount the pkgs
 	if defines.UpdateFileFlag == "" {
 		return
@@ -216,7 +228,7 @@ func doupdatefilemnt() {
 	logger.LogToFile("Mounting nullfs")
 	cmd := exec.Command(
 		"mount_nullfs", defines.ImgMnt,
-		defines.STAGEDIR+defines.ImgMnt,
+		prefix+defines.ImgMnt,
 	)
 	err := cmd.Run()
 	if err != nil {
@@ -646,6 +658,51 @@ func checkbaseswitch() {
 	logger.LogToFile(string(fullout))
 }
 
+func updatercscript() {
+	// Intercept the /etc/rc script
+	src := defines.STAGEDIR + "/etc/rc"
+	dest := defines.STAGEDIR + "/etc/rc-updatergo"
+	cpCmd := exec.Command("mv", src, dest)
+	err := cpCmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var fuflag string
+	if defines.FullUpdateFlag {
+		fuflag = "-fullupdate"
+	}
+	var cacheflag string
+	if defines.CacheDirFlag != "" {
+		cacheflag = "-cachedir " + defines.CacheDirFlag
+	}
+
+	var upflag string
+	if defines.UpdateFileFlag != "" {
+		upflag = "-updatefile " + defines.UpdateFileFlag
+	}
+
+	selfbin, _ := os.Executable()
+	ugobin := "/." + defines.ToolName
+	cpCmd = exec.Command("install", "-m", "755", selfbin, defines.STAGEDIR+ugobin)
+	err = cpCmd.Run()
+	if err != nil {
+		logger.LogToFile("Failed pkg upgrade!")
+		ws.SendMsg("Failed pkg upgrade!", "fatal")
+		log.Fatal(err)
+	}
+
+	// Splat down our intercept
+	fdata := `#!/bin/sh
+PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+export PATH
+` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag + ` ` + cacheflag
+	ioutil.WriteFile(defines.STAGEDIR+"/etc/rc", []byte(fdata), 0755)
+
+	ws.SendMsg("Finished stage package update")
+	logger.LogToFile("FinishedPackageUpdate\n-----------------------")
+}
+
 func updateincremental(force bool) error {
 	var stdoutBuf, stderrBuf bytes.Buffer
 	var errStdout, errStderr error
@@ -699,7 +756,6 @@ func updateincremental(force bool) error {
 	cmd.Args = append(cmd.Args, defines.PkgConf)
 	cmd.Args = append(cmd.Args, "upgrade")
 	cmd.Args = append(cmd.Args, "-U")
-	cmd.Args = append(cmd.Args, "-I")
 	cmd.Args = append(cmd.Args, "-y")
 
 	stdoutPipe, _ := cmd.StdoutPipe()
@@ -792,31 +848,80 @@ func updateincremental(force bool) error {
 	return nil
 }
 
-func startupgrade() {
+func updatekernel() {
+	ws.SendMsg("Starting stage 1 kernel update")
+	logger.LogToFile("Kernel Update Stage 1\n-----------------------")
+
+	// Check if we need to update pkg itself first
+	pkgcmd := exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf, "upgrade", "-U", "-y", "-f", "ports-mgmt/pkg")
+	fullout, err := pkgcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
+
+	// Update the kernel package first
+	cmd := exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf, "upgrade", "-U", "-y", "-f", defines.KernelPkg)
+	logger.LogToFile("Starting Kernel upgrade with: " + strings.Join(cmd.Args, " "))
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		logger.LogToFile("Failed kernel update stdoutpipe")
+		return
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		logger.LogToFile("Failed kernel update stderrpipe")
+		return
+	}
+	if err := cmd.Start(); err != nil {
+		logger.LogToFile("Failed starting kernel update")
+		ws.SendMsg("Failed starting kernel update", "fatal")
+		return
+	}
+	buff := bufio.NewScanner(stdout)
+
+	// Iterate over buff and append content to the slice
+	var allText []string
+	for buff.Scan() {
+		line := buff.Text()
+		ws.SendMsg(line)
+		logger.LogToFile(line)
+		allText = append(allText, line+"\n")
+	}
+	// Pkg returns 0 on sucess
+	if err := cmd.Wait(); err != nil {
+		errbuf, _ := ioutil.ReadAll(stderr)
+		errarr := strings.Split(string(errbuf), "\n")
+		for i, _ := range errarr {
+			ws.SendMsg(errarr[i])
+			logger.LogToFile(errarr[i])
+		}
+		ws.SendMsg("Failed kernel update!", "fatal")
+		return
+	}
+	ws.SendMsg("Finished stage 1 kernel update")
+	logger.LogToFile("Finished Kernel Update Stage 1\n-----------------------")
+
+	// Check if we need to do any ZFS automagic
+	sanitize_zfs()
+
+}
+
+func startupgrade(kernelupdate bool) {
 
 	cleanupbe()
 
 	createnewbe()
 
 	// If we are using standalone update need to nullfs mount the pkgs
-	doupdatefilemnt()
+	doupdatefilemnt(defines.STAGEDIR)
 
-	if err := updateincremental(defines.FullUpdateFlag); err != nil {
-		return
+	if kernelupdate {
+		updatekernel()
 	}
-
-	// Check if we need to do any ZFS automagic
-	sanitize_zfs()
-
-	// Update the bootloader
-	UpdateLoader(defines.STAGEDIR)
+	updatercscript()
 
 	// Cleanup nullfs mount
 	doupdatefileumnt(defines.STAGEDIR)
-
-	// Unmount the devfs point
-	cmd := exec.Command("umount", "-f", defines.STAGEDIR+"/dev")
-	cmd.Run()
 
 	// Rename to proper BE name
 	renamebe()
@@ -827,6 +932,105 @@ func startupgrade() {
 		"Success! Reboot your system to continue the update process.",
 		"shutdown",
 	)
+
+}
+
+func preparestage2() {
+	log.Println("Preparing to start update...")
+	logger.LogToFile("Preparing to start stage2 update....")
+
+	// Need to ensure ZFS is all mounted and ready
+	cmd := exec.Command("mount", "-u", "rw", "/")
+	err := cmd.Run()
+	if err != nil {
+		copylogexit(err, "Failed mounting -u rw")
+	}
+
+	// Set the OLD BE as the default in case we crash and burn...
+	dat, err := ioutil.ReadFile("/.updategooldbename")
+	if err != nil {
+		copylogexit(err, "Failed read .updategooldbename")
+	}
+
+	bename := strings.TrimSpace(string(dat))
+	// Now activate
+	out, err := exec.Command("beadm", "activate", bename).CombinedOutput()
+	if err != nil {
+		logger.LogToFile("Failed beadm activate: " + bename + " " + string(out))
+	}
+
+	// Make sure everything is mounted and ready!
+	cmd = exec.Command("zfs", "mount", "-a")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		logger.LogToFile("Failed zfs mount -a: " + string(out))
+	}
+
+	// Need to try and kldload linux64 / linux so some packages can update
+	cmd = exec.Command("kldload", "linux64")
+	err = cmd.Run()
+	if err != nil {
+		logger.LogToFile("WARNING: unable to kldload linux64")
+	}
+	cmd = exec.Command("kldload", "linux")
+	err = cmd.Run()
+	if err != nil {
+		logger.LogToFile("WARNING: unable to kldload linux")
+	}
+
+	// Put back /etc/rc-updatergo so that pkg can update it properly
+	src := "/etc/rc-updatergo"
+	dest := "/etc/rc"
+	cpCmd := exec.Command("mv", src, dest)
+	err = cpCmd.Run()
+	if err != nil {
+		copylogexit(err, "Failed restoring /etc/rc")
+	}
+}
+
+func StartStage2() {
+
+	preparestage2()
+
+	doupdatefilemnt("")
+
+	if err := updateincremental(defines.FullUpdateFlag); err != nil {
+		return
+	}
+
+	// Cleanup nullfs mount
+	doupdatefileumnt("")
+
+	pkg.DestroyMdDev()
+
+	// SUCCESS! Lets finish and activate the new BE
+	activatebe()
+
+	// Update the bootloader
+	UpdateLoader("")
+
+	// Lastly reboot into the new environment
+	cmd := exec.Command("reboot")
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func activatebe() {
+	dat, err := ioutil.ReadFile("/.updategobename")
+	if err != nil {
+		copylogexit(err, "Failed reading updategobename")
+	}
+
+	// Activate the boot-environment
+	bename := string(dat)
+	cmd := exec.Command("beadm", "activate", bename)
+	err = cmd.Run()
+	if err != nil {
+		copylogexit(err, "Failed beadm activate: "+bename)
+	}
 }
 
 func renamebe() {
@@ -876,6 +1080,14 @@ func renamebe() {
 		ws.SendMsg("Failed mounting: "+defines.BESTAGE, "fatal")
 		log.Fatal(err)
 	}
+
+	// Write the new BE name
+	fdata := BENAME
+	ioutil.WriteFile("/var/tmp/"+BENAME+"/.updategobename", []byte(fdata), 0644)
+
+	// Write the old BE name
+	odata := strings.TrimSpace(getcurrentbe())
+	ioutil.WriteFile("/var/tmp/"+BENAME+"/.updategooldbename", []byte(odata), 0644)
 
 	// Now rename BE
 	if BENAME != defines.BESTAGE {
