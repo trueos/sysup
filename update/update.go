@@ -949,6 +949,7 @@ func preparestage2() {
 	dat, err := ioutil.ReadFile("/.updategooldbename")
 	if err != nil {
 		copylogexit(err, "Failed read .updategooldbename")
+		rebootnow()
 	}
 
 	bename := strings.TrimSpace(string(dat))
@@ -984,6 +985,7 @@ func preparestage2() {
 	err = cpCmd.Run()
 	if err != nil {
 		copylogexit(err, "Failed restoring /etc/rc")
+		rebootnow()
 	}
 }
 
@@ -997,6 +999,7 @@ func StartStage2() {
 	doupdatefilemnt("")
 
 	if err := updateincremental(defines.FullUpdateFlag); err != nil {
+		rebootnow()
 		return
 	}
 
@@ -1137,7 +1140,12 @@ func copylogexit(perr error, text string) {
 	logger.LogToFile(perr.Error())
 	logger.LogToFile(text)
 	log.Println(text)
-	log.Fatal(perr)
+
+}
+
+// We've failed, lets reboot back into the old BE
+func rebootnow() {
+	exec.Command("reboot").Run()
 }
 
 func startfetch() error {
