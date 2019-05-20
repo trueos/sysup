@@ -523,7 +523,7 @@ func checkFlavorSwitch() {
 	}
 }
 
-func checkbasebootstrapswitch() {
+func checkBaseBootstrapSwitch() {
 	// Dirty work-around to a bug in pkg today
 	//
 	// Can be removed at a later date when pkg handles more gracefully
@@ -549,15 +549,16 @@ func checkbasebootstrapswitch() {
 
 	// No? Lets prepare to move to this broken out base pkg
 	// Files to remove from pkg sql database
-	var conflictfiles []string
-	conflictfiles = append(conflictfiles, "/libexec/ld-elf.so.1")
-	conflictfiles = append(conflictfiles, "/libexec/ld-elf32.so.1")
-	conflictfiles = append(conflictfiles, "/usr/lib/libc.so")
-	conflictfiles = append(conflictfiles, "/usr/lib/libm.so")
-	conflictfiles = append(conflictfiles, "/usr/lib/libthr.so")
-	conflictfiles = append(conflictfiles, "/lib/libc.so.7")
-	conflictfiles = append(conflictfiles, "/lib/libm.so.5")
-	conflictfiles = append(conflictfiles, "/lib/libthr.so.3")
+	var conflictfiles = []string{
+		"/libexec/ld-elf.so.1",
+		"/libexec/ld-elf32.so.1",
+		"/usr/lib/libc.so",
+		"/usr/lib/libm.so",
+		"/usr/lib/libthr.so",
+		"/lib/libc.so.7",
+		"/lib/libm.so.5",
+		"/lib/libthr.so.3",
+	}
 
 	// Go through and do database surgery now....
 	for i := range conflictfiles {
@@ -707,7 +708,7 @@ func updateincremental(force bool) error {
 	checkbaseswitch()
 
 	// Check if we needto cleanup move to new bootstrap clibs
-	checkbasebootstrapswitch()
+	checkBaseBootstrapSwitch()
 
 	// Make sure the BE has a valid resolv.conf
 	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
