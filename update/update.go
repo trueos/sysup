@@ -523,6 +523,57 @@ func checkFlavorSwitch() {
 	}
 }
 
+func checkBaseBootstrapSwitch() {
+	// Dirty work-around to a bug in pkg today
+	//
+	// Can be removed at a later date when pkg handles more gracefully
+	// new pkg depends coming into the runtime, which contain files that
+	// previously existed in current pkgs
+
+	// Does the new pkg repo have os/userland-base-bootstrap port origin
+	cmd := exec.Command(
+		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+		"rquery", "-U", "%v", "os/userland-base-bootstrap",
+	)
+	err := cmd.Run()
+	if err != nil {
+		return
+	}
+
+	// We have os/userland remote, lets see if we are using it already locally
+	cmd = exec.Command(defines.PKGBIN, "query", "%v", "os/userland-base-bootstrap")
+	err = cmd.Run()
+	if err == nil {
+		return
+	}
+
+	// No? Lets prepare to move to this broken out base pkg
+	// Files to remove from pkg sql database
+	var conflictfiles = []string{
+		"/libexec/ld-elf.so.1",
+		"/libexec/ld-elf32.so.1",
+		"/usr/lib/libc.so",
+		"/usr/lib/libm.so",
+		"/usr/lib/libthr.so",
+		"/lib/libc.so.7",
+		"/lib/libm.so.5",
+		"/lib/libthr.so.3",
+	}
+
+	// Go through and do database surgery now....
+	for i := range conflictfiles {
+		cmd := exec.Command(
+			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+			"shell", "DELETE from files where path = '"+conflictfiles[i]+"';",
+		)
+		err := cmd.Run()
+		if err != nil {
+			ws.SendMsg("Failed removing pkg db entry: "+conflictfiles[i], "")
+		}
+
+	}
+}
+
 func checkbaseswitch() {
 
 	// Does the new pkg repo have os/userland port origin
@@ -656,6 +707,9 @@ func updateincremental(force bool) error {
 	// Check if we are moving from legacy pkg base to ports-base
 	checkbaseswitch()
 
+	// Check if we needto cleanup move to new bootstrap clibs
+	checkBaseBootstrapSwitch()
+
 	// Make sure the BE has a valid resolv.conf
 	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
 	_, err := utils.Copyfile("/etc/resolv.conf", resolv_dest)
@@ -778,6 +832,36 @@ func updateincremental(force bool) error {
 		ws.SendMsg(string(fullout))
 		logger.LogToFile(string(fullout))
 	}
+
+	// Regen login.conf db
+	dbcmd := exec.Command(
+		"cap_mkdb", "-l", "-f", defines.STAGEDIR+"/etc/login.conf.db",
+		defines.STAGEDIR+"/etc/login.conf",
+	)
+	// err isn't used
+	fullout, _ = dbcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
+
+	// Regen pwd db
+	dbcmd = exec.Command(
+		"pwd_mkdb", "-i", "-p", "-d", defines.STAGEDIR+"/etc",
+		defines.STAGEDIR+"/etc/master.passwd",
+	)
+	// err isn't used
+	fullout, _ = dbcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
+
+	// Regen services db
+	dbcmd = exec.Command(
+		"services_mkdb", "-l", "-q", "-o", defines.STAGEDIR+"/var/db/services.db",
+		defines.STAGEDIR+"/etc/services",
+	)
+	// err isn't used
+	fullout, _ = dbcmd.CombinedOutput()
+	ws.SendMsg(string(fullout))
+	logger.LogToFile(string(fullout))
 
 	// Cleanup orphans
 	pkgcmd = exec.Command(
