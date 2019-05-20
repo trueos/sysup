@@ -9,7 +9,6 @@ import (
 	"github.com/trueos/sysup/defines"
 	"github.com/trueos/sysup/logger"
 	"github.com/trueos/sysup/pkg"
-	"github.com/trueos/sysup/utils"
 	"github.com/trueos/sysup/ws"
 	"io"
 	"io/ioutil"
@@ -535,129 +534,6 @@ func checkFlavorSwitch() {
 	}
 }
 
-func checkbaseswitch() {
-
-	// Does the new pkg repo have os/userland port origin
-	cmd := exec.Command(
-		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
-		"rquery", "-U", "%v", "os/userland",
-	)
-	err := cmd.Run()
-	if err != nil {
-		return
-	}
-
-	// We have os/userland remote, lets see if we are using it already locally
-	cmd = exec.Command(defines.PKGBIN, "query", "%v", "os/userland")
-	err = cmd.Run()
-	if err == nil {
-		return
-	}
-
-	output, cmderr := exec.Command(
-		"tar", "czf", defines.STAGEDIR+"/.etcbackup.tgz", "-C",
-		defines.STAGEDIR+"/etc", ".",
-	).Output()
-	if cmderr != nil {
-		ws.SendMsg(string(output))
-		ws.SendMsg("Failed saving /etc configuration", "fatal")
-	}
-	// Make sure pkg is fetched
-	ws.SendMsg("Fetching new base")
-	logger.LogToFile("Fetching new base")
-	cmd = exec.Command(
-		defines.PKGBIN, "-C", defines.PkgConf, "fetch", "-U", "-d",
-		"-y", "os/userland", "os/kernel",
-	)
-	err = cmd.Run()
-	if err != nil {
-		ws.SendMsg("Failed fetching new base", "fatal")
-	}
-
-	// Get list of packages we need to nuke
-	shellcmd := defines.PKGBIN +
-		" query '%o %n-%v' | grep '^base ' | awk '{print $2}'"
-	output, cmderr = exec.Command("/bin/sh", "-c", shellcmd).Output()
-	if cmderr != nil {
-		ws.SendMsg("Failed getting base package list", "fatal")
-	}
-
-	basepkgs := strings.TrimSpace(string(output))
-	barr := strings.Split(basepkgs, "\n")
-	for i := range barr {
-		// Unset vital flag
-		ws.SendMsg("Removing: " + barr[i])
-		logger.LogToFile("Removing: " + barr[i])
-		cmd := exec.Command(
-			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
-			"set", "-v", "0", barr[i],
-		)
-		err := cmd.Run()
-		if err != nil {
-			log.Fatal("Failed unsetting vital")
-		}
-		// Remove the package now
-		cmd = exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR,
-			"-C", defines.PkgConf, "delete", "-y", "-f", "-g", barr[i],
-		)
-		remout, err := cmd.CombinedOutput()
-		if err != nil {
-			ws.SendMsg(string(remout))
-			ws.SendMsg("Failed removing "+barr[i], "fatal")
-		}
-		if strings.Contains(barr[i], "-runtime-1") {
-			// If this was the runtime package, need to re-install userland
-			// right away
-			ws.SendMsg("Boot-strapping userland")
-			pkgcmd := exec.Command(
-				defines.PKGBIN, "-r", defines.STAGEDIR, "-C", defines.PkgConf,
-				"install", "-U", "-f", "-y", "os/userland",
-			)
-			fullout, err := pkgcmd.CombinedOutput()
-			if err != nil {
-				ws.SendMsg(string(fullout))
-				ws.SendMsg("Failed boot-strapping userland", "fatal")
-			}
-		}
-	}
-
-	// Load new userland / kernel and friends
-	pkgcmd := exec.Command(
-		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
-		"install", "-U", "-y", "os/userland", "os/kernel",
-	)
-	fullout, _ := pkgcmd.CombinedOutput()
-	ws.SendMsg(string(fullout))
-	logger.LogToFile(string(fullout))
-
-	// Ensure pkg is boot-strapped again
-	pkgcmd = exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C",
-		defines.PkgConf, "install", "-U", "-y", "ports-mgmt/pkg",
-	)
-	fullout, _ = pkgcmd.CombinedOutput()
-	ws.SendMsg(string(fullout))
-	logger.LogToFile(string(fullout))
-
-	// Copy back the /etc changes
-	output, cmderr = exec.Command(
-		"tar", "xf", defines.STAGEDIR+"/.etcbackup.tgz", "-C",
-		defines.STAGEDIR+"/etc",
-	).CombinedOutput()
-	if cmderr != nil {
-		ws.SendMsg(string(output))
-		ws.SendMsg("WARNING: Tar error while updating /etc configuration")
-	}
-	exec.Command("rm", defines.STAGEDIR+"/.etcbackup.tgz").Run()
-
-	// Make sure sysup is marked as installed
-	pkgcmd = exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C",
-		defines.PkgConf, "set", "-y", "-A", "00", "sysutils/sysup",
-	)
-	fullout, _ = pkgcmd.CombinedOutput()
-	ws.SendMsg(string(fullout))
-	logger.LogToFile(string(fullout))
-}
-
 func updatercscript() {
 	// Intercept the /etc/rc script
 	src := defines.STAGEDIR + "/etc/rc"
@@ -710,25 +586,8 @@ func updateincremental(force bool) error {
 	ws.SendMsg("Starting package update")
 	logger.LogToFile("PackageUpdate\n-----------------------")
 
-	// Check if we are moving from legacy pkg base to ports-base
-	checkbaseswitch()
-
-	// Make sure the BE has a valid resolv.conf
-	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
-	_, err := utils.Copyfile("/etc/resolv.conf", resolv_dest)
-	if err != nil {
-		err_string := fmt.Sprintf(
-			"Copying /etc/resolv.conf failed: %s\n", err,
-		)
-		pkg.DestroyMdDev()
-		logger.LogToFile(err_string)
-		ws.SendMsg(err_string, "fatal")
-
-		return errors.New(err_string)
-	}
-
 	pkgcmd := exec.Command(
-		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+		defines.PKGBIN, "-C", defines.PkgConf,
 		"upgrade", "-U", "-y", "-f", "ports-mgmt/pkg",
 	)
 	fullout, err := pkgcmd.CombinedOutput()
@@ -750,8 +609,6 @@ func updateincremental(force bool) error {
 
 	// Setup our main update process
 	cmd := exec.Command(defines.PKGBIN)
-	cmd.Args = append(cmd.Args, "-c")
-	cmd.Args = append(cmd.Args, defines.STAGEDIR)
 	cmd.Args = append(cmd.Args, "-C")
 	cmd.Args = append(cmd.Args, defines.PkgConf)
 	cmd.Args = append(cmd.Args, "upgrade")
@@ -827,7 +684,7 @@ func updateincremental(force bool) error {
 	critpkg := []string{"ports-mgmt/pkg", "os/userland", "os/kernel"}
 	for i := range critpkg {
 		pkgcmd = exec.Command(
-			defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+			defines.PKGBIN, "-C", defines.PkgConf,
 			"set", "-y", "-A", "00", critpkg[i],
 		)
 		fullout, _ = pkgcmd.CombinedOutput()
@@ -837,7 +694,7 @@ func updateincremental(force bool) error {
 
 	// Cleanup orphans
 	pkgcmd = exec.Command(
-		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
+		defines.PKGBIN, "-C", defines.PkgConf,
 		"autoremove", "-y",
 	)
 	// err isn't used
@@ -1037,6 +894,7 @@ func activatebe() {
 	err = cmd.Run()
 	if err != nil {
 		copylogexit(err, "Failed beadm activate: "+bename)
+		rebootnow()
 	}
 }
 
@@ -1096,6 +954,25 @@ func renamebe() {
 	odata := strings.TrimSpace(getcurrentbe())
 	ioutil.WriteFile("/var/tmp/"+BENAME+"/.updategooldbename", []byte(odata), 0644)
 
+	// beadm requires this to exist
+	loaderConf := "/var/tmp/" + BENAME + "/boot/loader.conf"
+	cmd = exec.Command("touch", loaderConf)
+	err = cmd.Run()
+	if err != nil {
+		logger.LogToFile("Failed touching " + loaderConf)
+		ws.SendMsg("Failed touching: " + loaderConf)
+		log.Fatal("Failed touching: " + loaderConf)
+	}
+
+	// Unmount again?
+	cmd = exec.Command("beadm", "umount", "-f", defines.BESTAGE)
+	err = cmd.Run()
+	if err != nil {
+		logger.LogToFile("Failed beadm umount -f")
+		ws.SendMsg("Failed unmounting: "+defines.BESTAGE, "fatal")
+		log.Fatal(err)
+	}
+
 	// Now rename BE
 	if BENAME != defines.BESTAGE {
 		cmd = exec.Command("beadm", "rename", defines.BESTAGE, BENAME)
@@ -1105,16 +982,6 @@ func renamebe() {
 			ws.SendMsg("Failed renaming: "+BENAME, "fatal")
 			log.Fatal(err)
 		}
-	}
-
-	// beadm requires this to exist
-	loaderConf := "/var/tmp/" + BENAME + "/boot/loader.conf"
-	cmd = exec.Command("touch", loaderConf)
-	err = cmd.Run()
-	if err != nil {
-		logger.LogToFile("Failed touching " + loaderConf)
-		ws.SendMsg("Failed touching: " + loaderConf)
-		log.Fatal("Failed touching: " + loaderConf)
 	}
 
 	// Lastly setup a boot of this new BE
