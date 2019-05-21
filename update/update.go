@@ -623,7 +623,7 @@ func updatercscript() {
 	fdata := `#!/bin/sh
 PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export PATH
-` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag + ` ` + cacheflag
+` + ugobin + ` -stage2 ` + fuflag + ` ` + upflag + ` ` + cacheflag + ` && sh /etc/rc`
 	ioutil.WriteFile(defines.STAGEDIR+"/etc/rc", []byte(fdata), 0755)
 
 	ws.SendMsg("Finished stage package update")
@@ -746,36 +746,6 @@ func updateincremental(force bool) error {
 		ws.SendMsg(string(fullout))
 		logger.LogToFile(string(fullout))
 	}
-
-	// Regen login.conf db
-	dbcmd := exec.Command(
-		"cap_mkdb", "-l", "-f", defines.STAGEDIR+"/etc/login.conf.db",
-		defines.STAGEDIR+"/etc/login.conf",
-	)
-	// err isn't used
-	fullout, _ = dbcmd.CombinedOutput()
-	ws.SendMsg(string(fullout))
-	logger.LogToFile(string(fullout))
-
-	// Regen pwd db
-	dbcmd = exec.Command(
-		"pwd_mkdb", "-i", "-p", "-d", defines.STAGEDIR+"/etc",
-		defines.STAGEDIR+"/etc/master.passwd",
-	)
-	// err isn't used
-	fullout, _ = dbcmd.CombinedOutput()
-	ws.SendMsg(string(fullout))
-	logger.LogToFile(string(fullout))
-
-	// Regen services db
-	dbcmd = exec.Command(
-		"services_mkdb", "-l", "-q", "-o", defines.STAGEDIR+"/var/db/services.db",
-		defines.STAGEDIR+"/etc/services",
-	)
-	// err isn't used
-	fullout, _ = dbcmd.CombinedOutput()
-	ws.SendMsg(string(fullout))
-	logger.LogToFile(string(fullout))
 
 	// Cleanup orphans
 	pkgcmd = exec.Command(
@@ -955,13 +925,6 @@ func StartStage2() {
 
 	// Update the bootloader
 	UpdateLoader("")
-
-	// Lastly kickoff the boot again
-	cmd := exec.Command("sh", "/etc/rc")
-	err := cmd.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	os.Exit(0)
 
