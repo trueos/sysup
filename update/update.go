@@ -641,20 +641,7 @@ func updateincremental(force bool) error {
 	// Check if we needto cleanup move to new bootstrap clibs
 	checkBaseBootstrapSwitch()
 
-	// Make sure the BE has a valid resolv.conf
-	resolv_dest := defines.STAGEDIR + "/etc/resolv.conf"
-	_, err := utils.Copyfile("/etc/resolv.conf", resolv_dest)
-	if err != nil {
-		err_string := fmt.Sprintf(
-			"Copying /etc/resolv.conf failed: %s\n", err,
-		)
-		pkg.DestroyMdDev()
-		logger.LogToFile(err_string)
-		ws.SendMsg(err_string, "fatal")
-
-		return errors.New(err_string)
-	}
-
+	// Update pkg first
 	pkgcmd := exec.Command(
 		defines.PKGBIN, "-C", defines.PkgConf,
 		"upgrade", "-U", "-y", "-f", "ports-mgmt/pkg",
