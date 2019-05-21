@@ -1026,44 +1026,33 @@ func renamebe() {
 		}
 	}
 
-	// Start by unmounting BE
-	cmd := exec.Command("beadm", "umount", "-f", defines.BESTAGE)
-	err := cmd.Run()
-	if err != nil {
-		logger.LogToFile("Failed beadm umount -f")
-		ws.SendMsg("Failed unmounting: "+defines.BESTAGE, "fatal")
-		log.Fatal(err)
-	}
-
-	// Now mount BE
-	cmd = exec.Command("beadm", "mount", defines.BESTAGE, "/var/tmp/"+BENAME)
-	err = cmd.Run()
-
-	if err != nil {
-		logger.LogToFile("Failed beadm mount")
-		ws.SendMsg("Failed mounting: "+defines.BESTAGE, "fatal")
-		log.Fatal(err)
-	}
-
 	// Write the new BE name
 	fdata := BENAME
-	ioutil.WriteFile("/var/tmp/"+BENAME+"/.updategobename", []byte(fdata), 0644)
+	ioutil.WriteFile(defines.STAGEDIR+"/.updategobename", []byte(fdata), 0644)
 
 	// Write the old BE name
 	odata := strings.TrimSpace(getcurrentbe())
-	ioutil.WriteFile("/var/tmp/"+BENAME+"/.updategooldbename", []byte(odata), 0644)
+	ioutil.WriteFile(defines.STAGEDIR+"/.updategooldbename", []byte(odata), 0644)
 
 	// beadm requires this to exist
-	loaderConf := "/var/tmp/" + BENAME + "/boot/loader.conf"
-	cmd = exec.Command("touch", loaderConf)
-	err = cmd.Run()
+	loaderConf := defines.STAGEDIR + "/boot/loader.conf"
+	cmd := exec.Command("touch", loaderConf)
+	err := cmd.Run()
 	if err != nil {
 		logger.LogToFile("Failed touching " + loaderConf)
 		ws.SendMsg("Failed touching: " + loaderConf)
 		log.Fatal("Failed touching: " + loaderConf)
 	}
 
-	// Unmount again?
+	// Unmount /dev
+	cmd = exec.Command("umount", "-f", defines.STAGEDIR+"/dev")
+	cmd.Run()
+
+	// Unmount cache dir
+	cmd = exec.Command("umount", "-f", defines.STAGEDIR+defines.CacheDir)
+	err = cmd.Run()
+
+	// Unmount the BE
 	cmd = exec.Command("beadm", "umount", "-f", defines.BESTAGE)
 	err = cmd.Run()
 	if err != nil {
