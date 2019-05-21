@@ -9,7 +9,6 @@ import (
 	"github.com/trueos/sysup/defines"
 	"github.com/trueos/sysup/logger"
 	"github.com/trueos/sysup/pkg"
-	"github.com/trueos/sysup/utils"
 	"github.com/trueos/sysup/ws"
 	"io"
 	"io/ioutil"
