@@ -563,8 +563,11 @@ func checkBaseBootstrapSwitch() {
 	var conflictfiles = []string{
 		"/libexec/ld-elf.so.1",
 		"/libexec/ld-elf32.so.1",
+		"/usr/lib/libc.a",
 		"/usr/lib/libc.so",
+		"/usr/lib/libm.a",
 		"/usr/lib/libm.so",
+		"/usr/lib/libthr.a",
 		"/usr/lib/libthr.so",
 		"/lib/libc.so.7",
 		"/lib/libm.so.5",
