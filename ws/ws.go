@@ -14,6 +14,10 @@ type JSONReply struct {
 }
 
 func SendMsg(msg string, msg_type ...string) {
+	if defines.DisableWSMsg {
+		log.Println(msg)
+		return
+	}
 	m_type := "info"
 
 	if len(msg_type) > 0 {
