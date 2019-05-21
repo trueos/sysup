@@ -113,7 +113,7 @@ func DoUpdate(message []byte) {
 	defines.KernelPkg = details.KernelPkg
 
 	// Start the upgrade with bool passed if doing kernel update
-	startupgrade(kernelupdate)
+	startUpgrade(kernelupdate)
 }
 
 // This is called after a sysup boot-strap has taken place
@@ -821,7 +821,7 @@ func updatekernel() {
 
 }
 
-func startupgrade(kernelupdate bool) {
+func startUpgrade(kernelupdate bool) {
 
 	cleanupbe()
 
@@ -850,7 +850,7 @@ func startupgrade(kernelupdate bool) {
 
 }
 
-func preparestage2() {
+func prepareStage2() {
 	log.Println("Preparing to start update...")
 
 	// Need to ensure ZFS is all mounted and ready
@@ -863,8 +863,8 @@ func preparestage2() {
 	// Set the OLD BE as the default in case we crash and burn...
 	dat, err := ioutil.ReadFile("/.updategooldbename")
 	if err != nil {
-		copylogexit(err, "Failed read .updategooldbename")
-		rebootnow()
+		copylogexit(err, "Failed reading /.updategooldbename")
+		rebootNow()
 	}
 
 	bename := strings.TrimSpace(string(dat))
@@ -900,7 +900,7 @@ func preparestage2() {
 	err = cpCmd.Run()
 	if err != nil {
 		copylogexit(err, "Failed restoring /etc/rc")
-		rebootnow()
+		rebootNow()
 	}
 }
 
@@ -909,12 +909,12 @@ func StartStage2() {
 	// No WS server to talk to
 	defines.DisableWSMsg = true
 
-	preparestage2()
+	prepareStage2()
 
 	doupdatefilemnt("")
 
 	if err := updateincremental(defines.FullUpdateFlag); err != nil {
-		rebootnow()
+		rebootNow()
 		return
 	}
 
@@ -924,7 +924,7 @@ func StartStage2() {
 	pkg.DestroyMdDev()
 
 	// SUCCESS! Lets finish and activate the new BE
-	activatebe()
+	activateBe()
 
 	// Update the bootloader
 	UpdateLoader("")
@@ -933,10 +933,10 @@ func StartStage2() {
 
 }
 
-func activatebe() {
+func activateBe() {
 	dat, err := ioutil.ReadFile("/.updategobename")
 	if err != nil {
-		copylogexit(err, "Failed reading updategobename")
+		copylogexit(err, "Failed reading /.updategobename")
 	}
 
 	// Activate the boot-environment
@@ -945,7 +945,7 @@ func activatebe() {
 	err = cmd.Run()
 	if err != nil {
 		copylogexit(err, "Failed beadm activate: "+bename)
-		rebootnow()
+		rebootNow()
 	}
 }
 
@@ -1051,7 +1051,7 @@ func copylogexit(perr error, text string) {
 }
 
 // We've failed, lets reboot back into the old BE
-func rebootnow() {
+func rebootNow() {
 	exec.Command("reboot").Run()
 }
 
