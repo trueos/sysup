@@ -974,7 +974,8 @@ func renamebe() {
 				log.Fatal(err)
 			}
 
-			BENAME = string(bytes.Fields(version)[0])
+			// Set new BE name, but keep date / timestamp
+			BENAME = string(bytes.Fields(version)[0]) + "_" + defines.BESTAGE
 		}
 	}
 
@@ -992,8 +993,8 @@ func renamebe() {
 	err := cmd.Run()
 	if err != nil {
 		logger.LogToFile("Failed touching " + loaderConf)
-		ws.SendMsg("Failed touching: " + loaderConf)
-		log.Fatal("Failed touching: " + loaderConf)
+		ws.SendMsg("Failed touching: "+loaderConf, "fatal")
+		return
 	}
 
 	// Unmount /dev
@@ -1010,7 +1011,7 @@ func renamebe() {
 	if err != nil {
 		logger.LogToFile("Failed beadm umount -f")
 		ws.SendMsg("Failed unmounting: "+defines.BESTAGE, "fatal")
-		log.Fatal(err)
+		return
 	}
 
 	// Now rename BE
@@ -1018,9 +1019,9 @@ func renamebe() {
 		cmd = exec.Command("beadm", "rename", defines.BESTAGE, BENAME)
 		err = cmd.Run()
 		if err != nil {
-			logger.LogToFile("Failed beadm rename")
-			ws.SendMsg("Failed renaming: "+BENAME, "fatal")
-			log.Fatal(err)
+			logger.LogToFile("Failed renaming: " + defines.BESTAGE + " -> " + BENAME)
+			ws.SendMsg("Failed renaming: "+defines.BESTAGE+" -> "+BENAME, "fatal")
+			return
 		}
 	}
 
@@ -1030,7 +1031,7 @@ func renamebe() {
 	if err != nil {
 		logger.LogToFile("Failed beadm activate")
 		ws.SendMsg("Failed activating: "+BENAME, "fatal")
-		log.Fatal("Failed activating: " + BENAME)
+		return
 	}
 
 }
