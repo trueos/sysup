@@ -83,6 +83,7 @@ func DoUpdate(message []byte) {
 	// Start downloading our files if we aren't doing stand-alone upgrade
 	if defines.UpdateFileFlag == "" {
 		logger.LogToFile("Fetching file updates")
+		startpkgfetch()
 		startfetch()
 	}
 
@@ -1054,6 +1055,25 @@ func copylogexit(perr error, text string) {
 // We've failed, lets reboot back into the old BE
 func rebootNow() {
 	exec.Command("reboot").Run()
+}
+
+func startpkgfetch() error {
+
+	cmd := exec.Command(
+		defines.PKGBIN, "-C", defines.PkgConf, "upgrade", "-F", "-y", "-U",
+	)
+	cmd.Args = append(cmd.Args, "-f")
+	cmd.Args = append(cmd.Args, "ports-mgmt/pkg")
+
+	ws.SendMsg("Starting package update download")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		ws.SendMsg(string(out))
+		ws.SendMsg("Failed package fetch!", "fatal")
+		return err
+	}
+	ws.SendMsg(string(out))
+	return nil
 }
 
 func startfetch() error {
