@@ -80,6 +80,9 @@ func DoUpdate(message []byte) {
 	// Check if we are moving from pre-flavor pkg base to flavors
 	checkFlavorSwitch()
 
+	// Check if moving from zol -> nozfs flavor
+	checkZoLSwitch()
+
 	// Start downloading our files if we aren't doing stand-alone upgrade
 	if defines.UpdateFileFlag == "" {
 		logger.LogToFile("Fetching file updates")
@@ -404,19 +407,19 @@ func sanitize_zfs() {
 	// removing
 	_, err := os.Stat(defines.STAGEDIR + "/boot/modules/zfs.ko")
 	if err != nil {
-		cleanup_zol_port()
+		cleanup_openzfs_port()
 	}
 }
 
-func cleanup_zol_port() {
+func cleanup_openzfs_port() {
 
 	ws.SendMsg("Cleaning ZFS Port")
 	logger.LogToFile("ZFS Port cleanup stage 1\n-----------------------")
 
-	// Update the sysutils/zol port
+	// Update the sysutils/openzfs port
 	cmd := exec.Command(
 		defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf,
-		"delete", "-U", "-y", "sysutils/zol-kmod",
+		"delete", "-U", "-y", "sysutils/openzfs-kmod",
 	)
 	logger.LogToFile(
 		"Cleaning up ZFS port with: " + strings.Join(cmd.Args, " "),
@@ -456,6 +459,67 @@ func cleanup_zol_port() {
 	)
 }
 
+func checkZoLSwitch() {
+	// Does the new pkg repo have os-nozfs-userland flavorized package
+	cmd := exec.Command(
+		defines.PKGBIN, "-C", defines.PkgConf,
+		"rquery", "-U", "%v", "os-nozfs-userland",
+	)
+	if err := cmd.Run(); err != nil {
+		return
+	}
+
+	// We have flavorized package, lets see if we are still using the
+	// old non-flavor version still
+	cmd = exec.Command(defines.PKGBIN, "query", "%v", "os-zol-userland")
+	if err := cmd.Run(); err != nil {
+		// We are not using the old, we can safely return now
+		return
+	}
+
+	var pkgSlice []string
+	pkgArgs := []string{
+		defines.PKGBIN, "-C", defines.PkgConf, "set", "--change-name",
+	}
+
+	// Update the old style base packages to their flavor versions
+	if _, err := os.Stat(
+		"/boot/kernel/zfs.ko",
+	); os.IsNotExist(err) {
+		// Switch to a nozfs base flavor
+		ws.SendMsg("Switching to nozfs base flavor")
+		pkgSlice = append(
+			pkgSlice,
+			"os-zol-userland:os-nozfs-userland",
+			"os-zol-userland-base:os-nozfs-userland-base",
+			"os-zol-userland-debug:os-nozfs-userland-debug",
+			"os-zol-userland-docs:os-nozfs-userland-docs",
+			"os-zol-userland-lib32:os-nozfs-userland-lib32",
+			"os-zol-userland-tests:os-nozfs-userland-tests",
+			"os-zol-kernel:os-nozfs-kernel",
+			"os-zol-kernel-debug:os-nozfs-kernel-debug",
+			"os-zol-kernel-debug-symbols:os-nozfs-kernel-debug-symbols",
+			"os-zol-kernel-symbols:os-nozfs-kernel-symbols",
+			"os-zol-buildkernel:os-nozfs-buildkernel",
+			"os-zol-buildworld:os-nozfs-buildworld",
+		)
+
+	}
+
+	for _, pkg := range pkgSlice {
+		args := append(pkgArgs, pkg, "-y")
+
+		if out, err := exec.Command(
+			args[0], args[1:]...,
+		).CombinedOutput(); err != nil {
+			ws.SendMsg(
+				pkg+" failed to install! Error:\n"+string(out), "fatal",
+			)
+			log.Fatal(out)
+		}
+	}
+}
+
 func checkFlavorSwitch() {
 	// Does the new pkg repo have os-generic-userland flavorized package
 	cmd := exec.Command(
@@ -483,22 +547,22 @@ func checkFlavorSwitch() {
 	if _, err := os.Stat(
 		"/boot/kernel/zfs.ko",
 	); os.IsNotExist(err) {
-		// Switch to a ZOL base flavor
-		ws.SendMsg("Switching to ZOL base flavor")
+		// Switch to a nozfs base flavor
+		ws.SendMsg("Switching to nozfs base flavor")
 		pkgSlice = append(
 			pkgSlice,
-			"userland:os-zol-userland",
-			"userland-base:os-zol-userland-base",
-			"userland-debug:os-zol-userland-debug",
-			"userland-docs:os-zol-userland-docs",
-			"userland-lib32:os-zol-userland-lib32",
-			"userland-tests:os-zol-userland-tests",
-			"kernel:os-zol-kernel",
-			"kernel-debug:os-zol-kernel-debug",
-			"kernel-debug-symbols:os-zol-kernel-debug-symbols",
-			"kernel-symbols:os-zol-kernel-symbols",
-			"buildkernel:os-zol-buildkernel",
-			"buildworld:os-zol-buildworld",
+			"userland:os-nozfs-userland",
+			"userland-base:os-nozfs-userland-base",
+			"userland-debug:os-nozfs-userland-debug",
+			"userland-docs:os-nozfs-userland-docs",
+			"userland-lib32:os-nozfs-userland-lib32",
+			"userland-tests:os-nozfs-userland-tests",
+			"kernel:os-nozfs-kernel",
+			"kernel-debug:os-nozfs-kernel-debug",
+			"kernel-debug-symbols:os-nozfs-kernel-debug-symbols",
+			"kernel-symbols:os-nozfs-kernel-symbols",
+			"buildkernel:os-nozfs-buildkernel",
+			"buildworld:os-nozfs-buildworld",
 		)
 
 	} else {
