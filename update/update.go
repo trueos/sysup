@@ -492,6 +492,7 @@ func checkZoLSwitch() {
 			pkgSlice,
 			"os-zol-userland:os-nozfs-userland",
 			"os-zol-userland-base:os-nozfs-userland-base",
+			"os-zol-userland-base-bootstrap:os-nozfs-userland-base-bootstrap",
 			"os-zol-userland-debug:os-nozfs-userland-debug",
 			"os-zol-userland-docs:os-nozfs-userland-docs",
 			"os-zol-userland-lib32:os-nozfs-userland-lib32",
@@ -502,10 +503,12 @@ func checkZoLSwitch() {
 			"os-zol-kernel-symbols:os-nozfs-kernel-symbols",
 			"os-zol-buildkernel:os-nozfs-buildkernel",
 			"os-zol-buildworld:os-nozfs-buildworld",
+			"zol:openzfs",
+			"zol-kmod:openzfs-kmod",
 		)
 
 		// Enable the OpenZFS module at boot
-		_, cmderr := exec.Command("sysrc", "-f", "/boot/loader.conf", "openzfs_enable='YES'").Output()
+		_, cmderr := exec.Command("sysrc", "-f", "/boot/loader.conf", "openzfs_load=\"YES\"").Output()
 		if cmderr != nil {
 			log.Fatal("Failed enabling openzfs module")
 		}
