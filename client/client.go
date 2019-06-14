@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/trueos/sysup/defines"
 	"log"
@@ -10,21 +11,21 @@ import (
 
 // Show us our list of trains
 func printtrains(trains []defines.TrainDef, deftrain string) {
-	log.Println("Current Train: " + deftrain)
-	log.Println("")
-	log.Println("The following trains are available:")
-	log.Println(
+	fmt.Println("Current Train: " + deftrain)
+	fmt.Println("")
+	fmt.Println("The following trains are available:")
+	fmt.Println(
 		"------------------------------------------------------------------",
 	)
 	for i := range trains {
-		log.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
+		fmt.Printf("%s\t\t\t%s", trains[i].Name, trains[i].Description)
 		if trains[i].Deprecated {
-			log.Printf(" [Deprecated]")
+			fmt.Printf(" [Deprecated]")
 		}
 		for j := range trains[i].Tags {
-			log.Printf(" [%s]", trains[i].Tags[j])
+			fmt.Printf(" [%s]", trains[i].Tags[j])
 		}
-		log.Printf("\n")
+		fmt.Printf("\n")
 	}
 }
 
