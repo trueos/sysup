@@ -5,14 +5,27 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 )
 
 func RotateLog() {
+	nums := []int{9, 8, 7, 6, 5, 4, 3, 2, 1}
+	for _, num := range nums {
+		if _, err := os.Stat(defines.LogFile + "." + strconv.Itoa(num)); os.IsNotExist(err) {
+			continue
+		}
+
+		cmd := exec.Command("mv", defines.LogFile+"."+strconv.Itoa(num), defines.LogFile+"."+strconv.Itoa(num+1))
+		cmd.Run()
+	}
+
 	if _, err := os.Stat(defines.LogFile); os.IsNotExist(err) {
 		return
 	}
-	cmd := exec.Command("mv", defines.LogFile, defines.LogFile+".previous")
+
+	cmd := exec.Command("mv", defines.LogFile, defines.LogFile+".1")
 	cmd.Run()
+
 }
 
 func LogToFile(info string) {
