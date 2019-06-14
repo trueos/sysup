@@ -50,11 +50,11 @@ func parsejsonmsg(message []byte) int {
 		}
 		var haveupdates bool = s.Updates
 		if haveupdates {
-			log.Println("The following updates are available")
+			fmt.Println("The following updates are available")
 			printupdatedetails(s.Details)
 			os.Exit(10)
 		} else {
-			log.Println("No updates available")
+			fmt.Println("No updates available")
 			os.Exit(0)
 		}
 	case "info":
@@ -66,7 +66,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		log.Println(infomsg)
+		fmt.Println(infomsg)
 	case "updatebootloader":
 		var s struct {
 			defines.Envelope
@@ -76,7 +76,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		log.Println(infomsg)
+		fmt.Println(infomsg)
 		os.Exit(0)
 	case "listtrains":
 		var s struct {
@@ -97,7 +97,7 @@ func parsejsonmsg(message []byte) int {
 		if err := json.Unmarshal(message, &s); err != nil {
 			log.Fatal(err)
 		}
-		log.Println("Train set to: " + s.Train)
+		fmt.Println("Train set to: " + s.Train)
 		os.Exit(0)
 	case "shutdown":
 		var s struct {
@@ -108,7 +108,7 @@ func parsejsonmsg(message []byte) int {
 			log.Fatal(err)
 		}
 		var infomsg string = s.Info
-		log.Println(infomsg)
+		fmt.Println(infomsg)
 		os.Exit(0)
 	case "fatal":
 		var s struct {
@@ -250,34 +250,34 @@ func SetTrain() {
 
 func printupdatedetails(details defines.UpdateInfo) {
 
-	log.Println("The following packages will be updated:")
-	log.Println("----------------------------------------------------")
+	fmt.Println("The following packages will be updated:")
+	fmt.Println("----------------------------------------------------")
 	for i := range details.Up {
-		log.Println(
+		fmt.Println(
 			"   " + details.Up[i].Name + " " + details.Up[i].OldVersion +
 				" -> " + details.Up[i].NewVersion,
 		)
 	}
 
-	log.Println()
-	log.Println("The following packages will be installed:")
-	log.Println("----------------------------------------------------")
+	fmt.Println()
+	fmt.Println("The following packages will be installed:")
+	fmt.Println("----------------------------------------------------")
 	for i := range details.New {
-		log.Println("   " + details.New[i].Name + " " + details.New[i].Version)
+		fmt.Println("   " + details.New[i].Name + " " + details.New[i].Version)
 	}
 
-	log.Println()
-	log.Println("The following packages will be reinstalled:")
-	log.Println("----------------------------------------------------")
+	fmt.Println()
+	fmt.Println("The following packages will be reinstalled:")
+	fmt.Println("----------------------------------------------------")
 	for i := range details.Ri {
-		log.Println("   " + details.Ri[i].Name + " " + details.Ri[i].Reason)
+		fmt.Println("   " + details.Ri[i].Name + " " + details.Ri[i].Reason)
 	}
 
-	log.Println()
-	log.Println("The following packages will be removed:")
-	log.Println("----------------------------------------------------")
+	fmt.Println()
+	fmt.Println("The following packages will be removed:")
+	fmt.Println("----------------------------------------------------")
 	for i := range details.Del {
-		log.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
+		fmt.Println("   " + details.Del[i].Name + " " + details.Del[i].Version)
 	}
 }
 
