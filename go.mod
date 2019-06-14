@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/client9/misspell v0.3.4 // indirect
 	github.com/fzipp/gocyclo v0.0.0-20150627053110-6acd4345c835 // indirect
-	github.com/gordonklaus/ineffassign v0.0.0-20190531140324-8863c8f9d746 // indirect
+	github.com/gordonklaus/ineffassign v0.0.0-20190601041439-ed7b1b5ee0f8 // indirect
 	github.com/gorilla/websocket v1.4.0
 	github.com/magefile/mage v1.8.0
 	golang.org/x/crypto v0.0.0-20190506204251-e1dfcc566284 // indirect
