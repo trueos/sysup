@@ -84,7 +84,6 @@ This config file needs to be installed on every local system and provides the in
 ### Example Config File:
 ```
 {
-  "bootstrap" : true,
   "bootstrapfatal" : false,
   "offlineupdatekey" : "/usr/share/keys/sysup-pkg.pub",
   "trainsurl" : "https://my.pkg-repo.com/trains-manifest.json",
@@ -93,7 +92,6 @@ This config file needs to be installed on every local system and provides the in
 ```
 
 ### Config File Details
-- "bootstrap" (boolean) : (NOT USED YET) sysup should automatically update itself before doing any other updates
 - "bootstrapfatal" (boolean) : (NOT USED YET) If the bootstrap fails, should this fail the entire update.
 - "offlineupdatekey" (string) : Path to a public key file to use for offline updates. Alternative to using the "-updatekey" CLI option.
 - "trainsurl" (string) : URL for where to fetch the latest manifest of available update trains.

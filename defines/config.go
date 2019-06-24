@@ -21,7 +21,6 @@ func LoadConfig() bool {
 
 	// Set some defaults for values that may not be in the config file
 	s := ConfigFile{
-		Bootstrap:      false,
 		BootstrapFatal: false,
 		TrainsPubKey:   "",
 	}
@@ -30,7 +29,6 @@ func LoadConfig() bool {
 	}
 
 	// Set our gloabls now
-	Bootstrap = s.Bootstrap
 	BootstrapFatal = s.BootstrapFatal
 	TrainsUrl = s.TrainsURL
 
