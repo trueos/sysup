@@ -83,6 +83,9 @@ func DoUpdate(message []byte) {
 	// Check if moving from zol -> nozfs flavor
 	checkZoLSwitch()
 
+	// Check if migrating from userland-base -> userland-conf for /etc files
+	checkSubEtc()
+
 	// Start downloading our files if we aren't doing stand-alone upgrade
 	if defines.UpdateFileFlag == "" {
 		logger.LogToFile("Fetching file updates")
@@ -528,6 +531,52 @@ func checkZoLSwitch() {
 	}
 }
 
+func restoreSubEtc() {
+	_, err := os.Stat("/var/.etcmigrate.tar")
+
+	if os.IsNotExist(err) {
+		return
+	}
+
+	// Restore the backup copy of /etc
+	cmd := exec.Command("tar", "xvf", "/var/.etcmigrate.tar", "-C", "/etc")
+	if err := cmd.Run(); err != nil {
+		ws.SendMsg("Failed restore of /etc migration to sub-pkg:\n", "fatal")
+		return
+	}
+
+	cmd = exec.Command("rm", "/var/.etcmigrate.tar")
+	if err := cmd.Run(); err != nil {
+		ws.SendMsg("Failed cleanup of /etc migration to sub-pkg:\n", "fatal")
+		return
+	}
+}
+
+func checkSubEtc() {
+	// Does the new pkg repo have the new userland-conf package?
+	cmd := exec.Command(
+		defines.PKGBIN, "-C", defines.PkgConf,
+		"rquery", "-U", "%v", "os/userland-conf",
+	)
+	if err := cmd.Run(); err != nil {
+		return
+	}
+
+	// Check if we are running without this package right now
+	cmd = exec.Command(defines.PKGBIN, "query", "%v", "os/userland-conf")
+	if err := cmd.Run(); err == nil {
+		// We already have migrated to this sub-pkg, safe to abort
+		return
+	}
+
+	// Make a backup copy of /etc that we will restore in a bit
+	cmd = exec.Command("tar", "cvf", "/var/.etcmigrate.tar", "-C", "/etc", ".")
+	if err := cmd.Run(); err != nil {
+		ws.SendMsg("Failed /etc migration to sub-pkg:\n", "fatal")
+		return
+	}
+}
+
 func checkFlavorSwitch() {
 	// Does the new pkg repo have os-generic-userland flavorized package
 	cmd := exec.Command(
@@ -766,16 +815,16 @@ func updateincremental(force bool) error {
 	}
 
 	// We want to make sure we aren't blocking stdout
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var wg2 sync.WaitGroup
+	wg2.Add(1)
 
 	go func() {
 		_, errStdout = io.Copy(stdout, stdoutPipe)
-		wg.Done()
+		wg2.Done()
 	}()
 
 	_, errStderr = io.Copy(stderr, stderrPipe)
-	wg.Wait()
+	wg2.Wait()
 
 	// Pkg returns 0 on success
 	if err := cmd.Wait(); err != nil {
@@ -812,7 +861,7 @@ func updateincremental(force bool) error {
 	logger.LogToFile("FinishedPackageUpdate\n-----------------------")
 
 	// Mark essential pkgs
-	critpkg := []string{"ports-mgmt/pkg", "os/userland", "os/kernel"}
+	critpkg := []string{"ports-mgmt/pkg", "os/userland", "os/kernel", "sysutils/openzfs"}
 	for i := range critpkg {
 		pkgcmd = exec.Command(
 			defines.PKGBIN, "-C", defines.PkgConf,
@@ -822,6 +871,9 @@ func updateincremental(force bool) error {
 		ws.SendMsg(string(fullout))
 		logger.LogToFile(string(fullout))
 	}
+
+	// Check if we need to restore a migrated /etc
+	restoreSubEtc()
 
 	// Cleanup orphans
 	pkgcmd = exec.Command(
@@ -888,6 +940,29 @@ func updatekernel() {
 	}
 	ws.SendMsg("Finished stage 1 kernel update")
 	logger.LogToFile("Finished Kernel Update Stage 1\n-----------------------")
+
+	// Get other kmods to update as well
+	cmd = exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf, "query", "-g", "%n", "*-kmod")
+	kmods, cmderr := cmd.CombinedOutput()
+	if cmderr == nil {
+		// We have other kmods to update
+		kmodsarr := strings.Split(string(kmods), "\n")
+		for i, _ := range kmodsarr {
+			if kmodsarr[i] == "" {
+				continue
+			}
+			ws.SendMsg("Updating kernel module: " + kmodsarr[i])
+			logger.LogToFile("Updating kernel module: " + kmodsarr[i])
+			cmd := exec.Command(defines.PKGBIN, "-c", defines.STAGEDIR, "-C", defines.PkgConf, "upgrade", "-U", "-y", "-f", kmodsarr[i])
+			kmodout, cmderr := cmd.CombinedOutput()
+			ws.SendMsg(string(kmodout))
+			if cmderr != nil {
+				logger.LogToFile("Failed kernel module update!")
+				ws.SendMsg("Failed kernel module update!", "fatal")
+				return
+			}
+		}
+	}
 
 	// Check if we need to do any ZFS automagic
 	sanitize_zfs()
@@ -1015,9 +1090,9 @@ func activateBe() {
 	// Activate the boot-environment
 	bename := string(dat)
 	cmd := exec.Command("beadm", "activate", bename)
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		copylogexit(err, "Failed beadm activate: "+bename)
+		copylogexit(err, "Failed beadm activate: "+bename+"\n"+string(output))
 		rebootNow()
 	}
 }
